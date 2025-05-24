@@ -1,37 +1,27 @@
-import { getFlag } from '../../src/utils.js'
-import { CORS_HEADERS } from '../../src/config.js'
+import app from '../../src/app.js'
 
 export const config = { path: "/*" };
 
-export default (req, ctx) => {
-  const ip = ctx.ip
-  const { pathname } = new URL(req.url)
-  console.log(ip, pathname)
-  if (pathname === '/geo') {
-    const geo = {
-      city: ctx.geo?.city,
-      country: ctx.geo?.country?.name,
-      flag: getFlag(ctx.geo?.country?.code),
-      countryRegion: ctx.geo?.subdivision?.name,
-      region: ctx.server?.region,
-      latitude: ctx.geo?.latitude,
-      longitude: ctx.geo?.longitude
-    }
-    console.log(geo)
-    return ctx.json({
-      ip,
-      ...geo
-    }, {
-      headers: {
-        ...CORS_HEADERS,
-        'x-client-ip': ip
-      }
-    })
-  }
-  return new Response(ip, {
-    headers: {
-      ...CORS_HEADERS,
-      'x-client-ip': ip
-    }
+export default async (req, ctx) => {
+  // Add Netlify-specific context to the request
+  const request = new Request(req.url, {
+    method: req.method,
+    headers: req.headers,
+    body: req.body
   })
+
+  // Add Netlify geo data to cf object for compatibility
+  request.cf = {
+    country: ctx.geo?.country?.code,
+    region: ctx.geo?.subdivision?.code,
+    city: ctx.geo?.city,
+    latitude: ctx.geo?.latitude,
+    longitude: ctx.geo?.longitude,
+    colo: ctx.server?.region || 'netlify'
+  }
+
+  // Set client IP from Netlify context
+  request.headers.set('cf-connecting-ip', ctx.ip)
+
+  return app.fetch(request)
 }

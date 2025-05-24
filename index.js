@@ -1,5 +1,3 @@
-import lib from './src/index'
+import app from './src/app.js'
 
-const server = Bun.serve(lib);
-
-console.log(`Listening on localhost:${server.port}`);
+export default app
