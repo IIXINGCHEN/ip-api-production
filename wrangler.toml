@@ -19,6 +19,11 @@ name = "ip-api-production"
 workers_dev = false
 minify = true
 
+# Custom domain routes for production
+routes = [
+  { pattern = "ip.ixingchen.top/*", zone_name = "ixingchen.top" }
+]
+
 [env.production.vars]
 ENVIRONMENT = "production"
 WORKER_ENV = "production"

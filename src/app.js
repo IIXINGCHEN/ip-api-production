@@ -31,7 +31,12 @@ app.use('*', prettyJSON())
 
 // CORS configuration from environment
 app.use('*', cors({
-  origin: envConfig.api.corsOrigins,
+  origin: [
+    'https://ip.ixingchen.top',
+    'https://ixingchen.top',
+    'https://*.ixingchen.top',
+    ...envConfig.api.corsOrigins
+  ],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
   exposeHeaders: ['X-Client-IP', 'X-Rate-Limit-Remaining', 'X-Cache-Status']
@@ -62,9 +67,18 @@ app.route('/admin', adminRoutes)
 
 // 404 handler
 app.notFound((c) => {
+  const host = c.req.header('host') || 'ip.ixingchen.top'
   return c.json({
     error: 'Not Found',
     message: 'The requested endpoint does not exist',
+    host: host,
+    docs: `https://${host}/docs`,
+    availableEndpoints: [
+      `https://${host}/`,
+      `https://${host}/geo`,
+      `https://${host}/?ip=8.8.8.8`,
+      `https://${host}/admin/health`
+    ],
     timestamp: new Date().toISOString()
   }, 404)
 })

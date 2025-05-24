@@ -12,6 +12,7 @@
     "deploy:cloudflare": "wrangler deploy --env production",
     "deploy:vercel": "vercel --prod",
     "deploy:netlify": "netlify deploy --build --prod --dir netlify",
+    "setup-domain": "node scripts/setup-domain.js",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
     "lint": "eslint src/",
