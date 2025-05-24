@@ -3,8 +3,8 @@ main = "src/app.js"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Production configuration - temporarily enable preview URLs for testing
-workers_dev = true
+# Production configuration - disable preview URLs for security
+workers_dev = false
 minify = true
 
 # Production environment variables (non-sensitive)
