@@ -5,9 +5,12 @@
   "main": "src/app.js",
   "type": "module",
   "scripts": {
-    "start": "node src/app.js",
-    "dev": "node src/app.js",
-    "build": "echo 'Build completed for Vercel deployment'",
+    "start": "wrangler dev",
+    "dev": "wrangler dev",
+    "build": "echo 'Build completed for Workers deployment'",
+    "deploy": "wrangler deploy --env production",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:dev": "wrangler deploy --env development",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
     "lint": "eslint src/",
@@ -16,8 +19,7 @@
     "format:check": "prettier --check src/",
     "audit": "npm audit --audit-level moderate",
     "clean": "rm -rf dist node_modules/.cache",
-    "validate": "npm run lint && npm run format:check && npm run test",
-    "vercel-build": "echo 'Vercel build completed'"
+    "validate": "npm run lint && npm run format:check && npm run test"
   },
   "keywords": [
     "ip",
@@ -33,7 +35,6 @@
   "license": "MIT",
   "dependencies": {
     "@hono/zod-validator": "^0.5.0",
-    "@vercel/functions": "^2.1.0",
     "hono": "^4.7.10",
     "zod": "^3.25.28"
   },
@@ -41,6 +42,7 @@
     "@types/node": "^22.15.21",
     "eslint": "^9.27.0",
     "prettier": "^3.5.3",
-    "vitest": "^3.1.4"
+    "vitest": "^3.1.4",
+    "wrangler": "^4.16.1"
   }
 }
