@@ -1,7 +1,6 @@
 {
   "version": 2,
   "name": "ip-api-production",
-  "description": "Professional IP geolocation and threat detection API service",
   "framework": null,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
