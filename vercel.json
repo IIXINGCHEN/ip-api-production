@@ -180,7 +180,7 @@
   "crons": [
     {
       "path": "/admin/health",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 12 * * *"
     }
   ]
 }
