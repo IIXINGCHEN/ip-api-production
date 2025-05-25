@@ -10,10 +10,7 @@
     "index.js": {
       "runtime": "nodejs20.x",
       "maxDuration": 30,
-      "memory": 1024,
-      "regions": [
-        "all"
-      ]
+      "memory": 1024
     }
   },
   "routes": [
