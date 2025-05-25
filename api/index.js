@@ -20,8 +20,6 @@ export const HEAD = handle(app)
 
 // Vercel configuration
 export const config = {
-  runtime: 'nodejs20.x',
   maxDuration: 30,
-  memory: 1024,
-  regions: ['all']
+  memory: 1024
 }

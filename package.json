@@ -5,17 +5,9 @@
   "main": "src/app.js",
   "type": "module",
   "scripts": {
-    "start": "wrangler dev",
-    "dev": "wrangler dev",
+    "start": "node src/app.js",
+    "dev": "node src/app.js",
     "build": "echo 'Build completed for Vercel deployment'",
-    "deploy": "wrangler deploy --env production",
-    "deploy:production": "wrangler deploy --env production",
-    "deploy:staging": "wrangler deploy --env staging",
-    "deploy:cloudflare": "wrangler deploy --env production",
-    "deploy:vercel": "vercel --prod",
-    "deploy:vercel-preview": "vercel",
-    "deploy:netlify": "netlify deploy --build --prod --dir netlify",
-    "setup-domain": "node scripts/setup-domain.js",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
     "lint": "eslint src/",
@@ -41,18 +33,15 @@
   "license": "MIT",
   "dependencies": {
     "@hono/zod-validator": "^0.5.0",
-    "@vercel/edge": "^1.1.1",
+    "@vercel/functions": "^1.4.1",
     "hono": "^4.7.10",
     "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "eslint": "^8.55.0",
-    "netlify-cli": "^17.15.4",
     "prettier": "^3.1.0",
-    "vercel": "^32.7.2",
-    "vitest": "^1.0.0",
-    "wrangler": "^4.16.1"
+    "vitest": "^1.0.0"
   },
   "packageManager": "pnpm@9.14.2"
 }
