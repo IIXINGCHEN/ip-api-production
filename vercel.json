@@ -168,9 +168,6 @@
       "NODE_ENV": "production"
     }
   },
-  "regions": [
-    "all"
-  ],
   "cleanUrls": true,
   "trailingSlash": false,
   "github": {
