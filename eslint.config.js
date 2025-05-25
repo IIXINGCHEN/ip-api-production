@@ -17,10 +17,11 @@ export default [
       'no-var': 'error',
       'eqeqeq': 'error',
       'curly': 'error',
-      'no-trailing-spaces': 'error',
-      'indent': ['error', 2],
-      'quotes': ['error', 'single'],
-      'semi': ['error', 'never']
+      'no-trailing-spaces': 'error'
+      // Removed formatting rules that conflict with Prettier
+      // 'indent': ['error', 2],
+      // 'quotes': ['error', 'single'],
+      // 'semi': ['error', 'never']
     }
   }
 ]

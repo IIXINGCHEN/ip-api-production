@@ -1,97 +1,100 @@
-import { CACHE_CONFIG } from '../config/security.js'
-import { isFeatureEnabled, getEnvSetting } from '../config/environment.js'
+import { CACHE_CONFIG } from "../config/security.js";
+import { isFeatureEnabled, getEnvSetting } from "../config/environment.js";
 
 // Simple in-memory cache
 // In production, you might want to use Redis or Cloudflare KV
-const cache = new Map()
+const cache = new Map();
 
 export const cacheMiddleware = async (c, next) => {
   // Check if caching is enabled in current environment
-  if (!isFeatureEnabled('cache')) {
-    await next()
-    return
+  if (!isFeatureEnabled("cache")) {
+    await next();
+    return;
   }
 
-  const method = c.req.method
-  const path = c.req.path
-  const clientIP = c.get('clientIP')
+  const method = c.req.method;
+  const path = c.req.path;
+  const clientIP = c.get("clientIP");
 
   // Cleanup expired entries on each request (since we can't use setInterval)
-  cleanupExpiredEntries()
+  cleanupExpiredEntries();
 
   // Only cache GET requests
-  if (method !== 'GET') {
-    await next()
-    return
+  if (method !== "GET") {
+    await next();
+    return;
   }
 
   // Generate cache key
-  const cacheKey = generateCacheKey(path, clientIP)
+  const cacheKey = generateCacheKey(path, clientIP);
 
   // Try to get from cache
-  const cached = cache.get(cacheKey)
+  const cached = cache.get(cacheKey);
   if (cached && !isCacheExpired(cached)) {
-    c.header('X-Cache-Status', 'HIT')
-    c.header('X-Cache-TTL', Math.ceil((cached.expiresAt - Date.now()) / 1000).toString())
+    c.header("X-Cache-Status", "HIT");
+    c.header(
+      "X-Cache-TTL",
+      Math.ceil((cached.expiresAt - Date.now()) / 1000).toString(),
+    );
 
     // Return cached response
-    return c.json(cached.data, cached.status)
+    return c.json(cached.data, cached.status);
   }
 
   // Cache miss - continue with request
-  c.header('X-Cache-Status', 'MISS')
+  c.header("X-Cache-Status", "MISS");
 
   // Store original json method
-  const originalJson = c.json.bind(c)
+  const originalJson = c.json.bind(c);
 
   // Override json method to cache the response
   c.json = (data, status = 200) => {
     // Cache successful responses
     if (status >= 200 && status < 300) {
-      const ttl = getCacheTTL(path)
+      const ttl = getCacheTTL(path);
       if (ttl > 0) {
         cache.set(cacheKey, {
           data,
           status,
-          expiresAt: Date.now() + (ttl * 1000),
-          createdAt: Date.now()
-        })
+          expiresAt: Date.now() + ttl * 1000,
+          createdAt: Date.now(),
+        });
       }
     }
 
-    return originalJson(data, status)
-  }
+    return originalJson(data, status);
+  };
 
-  await next()
-}
+  await next();
+};
 
 function generateCacheKey(path, clientIP) {
   // For IP-specific endpoints, include IP in cache key
-  if (path === '/' || path === '/geo') {
-    return `${path}:${clientIP}`
+  if (path === "/" || path === "/geo") {
+    return `${path}:${clientIP}`;
   }
 
   // For other endpoints, use path only
-  return path
+  return path;
 }
 
 function getCacheTTL(path) {
   // Use environment-specific TTL values
-  const envTTL = getEnvSetting('cache.ttl')
+  const envTTL = getEnvSetting("cache.ttl");
 
-  if (path === '/') {
-    return envTTL?.ip || CACHE_CONFIG.ttl.ip
-  } else if (path === '/geo') {
-    return envTTL?.geo || CACHE_CONFIG.ttl.geo
-  } else if (path.includes('threat')) {
-    return envTTL?.threat || CACHE_CONFIG.ttl.threat
+  if (path === "/") {
+    return envTTL?.ip || CACHE_CONFIG.ttl.ip;
+  } else if (path === "/geo") {
+    return envTTL?.geo || CACHE_CONFIG.ttl.geo;
+  } else if (path.includes("threat")) {
+    return envTTL?.threat || CACHE_CONFIG.ttl.threat;
   }
 
-  return 0 // No caching by default
+  return 0; // No caching by default
 }
 
 function isCacheExpired(cached) {
-  return Date.now() > cached.expiresAt
+  return Date.now() > cached.expiresAt;
 }
 
 // Cleanup expired cache entries on demand
@@ -99,7 +102,7 @@ function isCacheExpired(cached) {
 function cleanupExpiredEntries() {
   for (const [key, cached] of cache.entries()) {
     if (isCacheExpired(cached)) {
-      cache.delete(key)
+      cache.delete(key);
     }
   }
 }
@@ -108,22 +111,22 @@ export const clearCache = (pattern) => {
   if (pattern) {
     for (const key of cache.keys()) {
       if (key.includes(pattern)) {
-        cache.delete(key)
+        cache.delete(key);
       }
     }
   } else {
-    cache.clear()
+    cache.clear();
   }
-}
+};
 
 export const getCacheStats = () => {
-  let totalEntries = 0
-  let expiredEntries = 0
+  let totalEntries = 0;
+  let expiredEntries = 0;
 
   for (const cached of cache.values()) {
-    totalEntries++
+    totalEntries++;
     if (isCacheExpired(cached)) {
-      expiredEntries++
+      expiredEntries++;
     }
   }
 
@@ -131,6 +134,6 @@ export const getCacheStats = () => {
     totalEntries,
     expiredEntries,
     activeEntries: totalEntries - expiredEntries,
-    memoryUsage: cache.size
-  }
-}
+    memoryUsage: cache.size,
+  };
+};

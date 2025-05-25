@@ -6,11 +6,14 @@
   "type": "module",
   "scripts": {
     "start": "wrangler dev",
+    "dev": "wrangler dev",
+    "build": "echo 'Build completed for Vercel deployment'",
     "deploy": "wrangler deploy --env production",
     "deploy:production": "wrangler deploy --env production",
     "deploy:staging": "wrangler deploy --env staging",
     "deploy:cloudflare": "wrangler deploy --env production",
     "deploy:vercel": "vercel --prod",
+    "deploy:vercel-preview": "vercel",
     "deploy:netlify": "netlify deploy --build --prod --dir netlify",
     "setup-domain": "node scripts/setup-domain.js",
     "test": "vitest",
@@ -21,7 +24,8 @@
     "format:check": "prettier --check src/",
     "audit": "npm audit --audit-level moderate",
     "clean": "rm -rf dist node_modules/.cache",
-    "validate": "npm run lint && npm run format:check && npm run test"
+    "validate": "npm run lint && npm run format:check && npm run test",
+    "vercel-build": "echo 'Vercel build completed'"
   },
   "keywords": [
     "ip",

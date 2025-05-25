@@ -1,94 +1,138 @@
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
-import { logger } from 'hono/logger'
-import { prettyJSON } from 'hono/pretty-json'
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+// import { logger as honoLogger } from 'hono/logger' // Replaced with custom logger
+import { prettyJSON } from "hono/pretty-json";
 
 // Import environment configuration
-import { ENVIRONMENT, getCurrentConfig, isFeatureEnabled } from './config/environment.js'
-import { formatSecureError } from './utils/security.js'
+import {
+  ENVIRONMENT,
+  getCurrentConfig,
+  isFeatureEnabled,
+  validateEnvironment,
+  checkSensitiveDataLogging,
+} from "./config/environment.js";
+import { errorHandlerMiddleware } from "./utils/errorHandler.js";
+import { runSecurityScan } from "./utils/securityScanner.js";
+import { logger } from "./utils/logger.js";
 
 // Import routes
-import ipRoutes from './routes/ip.js'
-import geoRoutes from './routes/geo.js'
-import adminRoutes from './routes/admin.js'
+import ipRoutes from "./routes/ip.js";
+import geoRoutes from "./routes/geo.js";
+import adminRoutes from "./routes/admin.js";
 
 // Import middleware
-import { rateLimitMiddleware } from './middleware/rateLimit.js'
-import { cacheMiddleware } from './middleware/cache.js'
-import { securityMiddleware } from './middleware/security.js'
+import { rateLimitMiddleware } from "./middleware/rateLimit.js";
+import { cacheMiddleware } from "./middleware/cache.js";
+import { securityMiddleware } from "./middleware/security.js";
+import {
+  monitoringMiddleware,
+  getHealthStatus,
+} from "./middleware/monitoring.js";
 
-const app = new Hono()
+const app = new Hono();
 
-// Get environment-specific configuration
-const envConfig = getCurrentConfig()
-
-// Global middleware - conditionally applied based on environment
-if (!ENVIRONMENT.isProduction() || isFeatureEnabled('debug')) {
-  app.use('*', logger())
+// Validate environment configuration on startup
+const envValidation = validateEnvironment();
+if (!envValidation.valid) {
+  logger.error("Environment validation failed", {
+    errors: envValidation.errors,
+  });
+  if (ENVIRONMENT.isProduction()) {
+    throw new Error(
+      "Production environment validation failed: " +
+        envValidation.errors.join(", "),
+    );
+  }
 }
 
-app.use('*', prettyJSON())
+if (envValidation.warnings && envValidation.warnings.length > 0) {
+  logger.warn("Environment warnings detected", {
+    warnings: envValidation.warnings,
+  });
+}
 
-// CORS configuration from environment
-app.use('*', cors({
-  origin: [
-    'https://ip.ixingchen.top',
-    'https://ixingchen.top',
-    'https://*.ixingchen.top',
-    ...envConfig.api.corsOrigins
-  ],
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
-  exposeHeaders: ['X-Client-IP', 'X-Rate-Limit-Remaining', 'X-Cache-Status']
-}))
+// Runtime security check
+checkSensitiveDataLogging();
+
+// Run comprehensive security scan
+const securityScanResult = runSecurityScan();
+
+// Get environment-specific configuration
+const envConfig = getCurrentConfig();
+
+// Global middleware - conditionally applied based on environment
+if (!ENVIRONMENT.isProduction() || isFeatureEnabled("debug")) {
+  app.use("*", logger());
+}
+
+app.use("*", prettyJSON());
+
+// CORS configuration from environment - secure production setup
+app.use(
+  "*",
+  cors({
+    origin: envConfig.api.corsOrigins, // Use environment-specific origins only
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization", "X-API-Key"],
+    exposeHeaders: ["X-Client-IP", "X-Rate-Limit-Remaining", "X-Cache-Status"],
+    credentials: false, // Disable credentials for security
+  }),
+);
+
+// Monitoring middleware (should be early in the chain)
+app.use("*", monitoringMiddleware);
 
 // Security middleware
-app.use('*', securityMiddleware)
+app.use("*", securityMiddleware);
 
 // Rate limiting
-app.use('*', rateLimitMiddleware)
+app.use("*", rateLimitMiddleware);
 
 // Caching
-app.use('*', cacheMiddleware)
+app.use("*", cacheMiddleware);
 
-// Health check endpoint
-app.get('/health', (c) => {
+// Health check endpoint with monitoring data
+app.get("/health", (c) => {
+  const healthData = getHealthStatus();
   return c.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    version: '2.0.0'
-  })
-})
+    ...healthData,
+    version: "2.0.0",
+    environment: ENVIRONMENT.current,
+    security: {
+      scanStatus: securityScanResult.getOverallStatus(),
+      score: securityScanResult.getScorePercentage(),
+      lastScan:
+        securityScanResult.passed[0]?.timestamp || new Date().toISOString(),
+    },
+  });
+});
 
 // API routes
-app.route('/', ipRoutes)
-app.route('/', geoRoutes)
-app.route('/admin', adminRoutes)
+app.route("/", ipRoutes);
+app.route("/", geoRoutes);
+app.route("/admin", adminRoutes);
 
-// 404 handler
+// 404 handler - secure version with minimal information exposure
 app.notFound((c) => {
-  const host = c.req.header('host') || 'ip.ixingchen.top'
-  return c.json({
-    error: 'Not Found',
-    message: 'The requested endpoint does not exist',
-    host: host,
-    docs: `https://${host}/docs`,
-    availableEndpoints: [
-      `https://${host}/`,
-      `https://${host}/geo`,
-      `https://${host}/?ip=8.8.8.8`,
-      `https://${host}/admin/health`
-    ],
-    timestamp: new Date().toISOString()
-  }, 404)
-})
+  const isProduction = ENVIRONMENT.isProduction();
 
-// Error handler with secure error formatting
-app.onError((error, c) => {
-  // Use secure error formatting based on environment
-  const secureError = formatSecureError(error, !ENVIRONMENT.isProduction())
+  const response = {
+    error: "Not Found",
+    message: "The requested resource was not found",
+    timestamp: new Date().toISOString(),
+  };
 
-  return c.json(secureError, 500)
-})
+  // Only provide additional information in non-production environments
+  if (!isProduction) {
+    const host = c.req.header("host") || "localhost";
+    response.docs = `https://${host}/docs`;
+    response.hint = "Check the API documentation for available endpoints";
+  }
 
-export default app
+  return c.json(response, 404);
+});
+
+// Error handler with unified error handling system
+app.onError(errorHandlerMiddleware);
+
+export default app;

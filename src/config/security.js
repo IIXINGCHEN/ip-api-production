@@ -6,36 +6,30 @@ export const SECURITY_CONFIG = {
     standardHeaders: true,
     legacyHeaders: false,
     message: {
-      error: 'Too Many Requests',
-      message: 'Rate limit exceeded. Please try again later.',
-      retryAfter: 900 // 15 minutes in seconds
-    }
+      error: "Too Many Requests",
+      message: "Rate limit exceeded. Please try again later.",
+      retryAfter: 900, // 15 minutes in seconds
+    },
   },
 
   // API key configuration
   apiKey: {
     required: false, // Set to true to require API keys for all requests
-    header: 'X-API-Key',
-    adminRequired: true // Admin endpoints always require API key
+    header: "X-API-Key",
+    adminRequired: true, // Admin endpoints always require API key
   },
 
-  // CORS configuration
-  cors: {
-    origin: '*',
-    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
-    exposeHeaders: ['X-Client-IP', 'X-Rate-Limit-Remaining', 'X-Cache-Status'],
-    maxAge: 86400 // 24 hours
-  },
+  // CORS configuration - moved to environment.js for centralized management
+  // This section is deprecated - use environment-specific CORS configuration
 
   // Security headers
   headers: {
-    'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'DENY',
-    'X-XSS-Protection': '1; mode=block',
-    'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Content-Security-Policy': 'default-src \'self\'',
-    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-XSS-Protection": "1; mode=block",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Content-Security-Policy": "default-src 'self'",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   },
 
   // IP whitelist (empty means all IPs allowed)
@@ -52,25 +46,25 @@ export const SECURITY_CONFIG = {
     checkVPN: true,
     checkProxy: true,
     checkTor: true,
-    blockSuspicious: false // Set to true to block suspicious IPs
-  }
-}
+    blockSuspicious: false, // Set to true to block suspicious IPs
+  },
+};
 
 export const CACHE_CONFIG = {
   // Cache TTL in seconds
   ttl: {
     ip: 300, // 5 minutes
     geo: 3600, // 1 hour
-    threat: 1800 // 30 minutes
+    threat: 1800, // 30 minutes
   },
 
   // Cache keys
   keys: {
     ip: (ip) => `ip:${ip}`,
     geo: (ip) => `geo:${ip}`,
-    threat: (ip) => `threat:${ip}`
-  }
-}
+    threat: (ip) => `threat:${ip}`,
+  },
+};
 
 export const PROVIDERS_CONFIG = {
   // Data provider priorities (higher number = higher priority)
@@ -78,21 +72,21 @@ export const PROVIDERS_CONFIG = {
     cloudflare: 100,
     maxmind: 80,
     ipinfo: 60,
-    fallback: 10
+    fallback: 10,
   },
 
   // Provider endpoints and configurations
   endpoints: {
     ipinfo: {
-      url: 'https://ipinfo.io',
+      url: "https://ipinfo.io",
       token: globalThis.IPINFO_TOKEN || null,
-      timeout: 5000
+      timeout: 5000,
     },
     maxmind: {
-      url: 'https://geoip.maxmind.com',
+      url: "https://geoip.maxmind.com",
       userId: globalThis.MAXMIND_USER_ID || null,
       licenseKey: globalThis.MAXMIND_LICENSE_KEY || null,
-      timeout: 5000
-    }
-  }
-}
+      timeout: 5000,
+    },
+  },
+};

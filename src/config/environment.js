@@ -6,41 +6,49 @@
 // Detect current environment
 export const ENVIRONMENT = {
   current: getEnvironment(),
-  isProduction: () => ENVIRONMENT.current === 'production',
-  isStaging: () => ENVIRONMENT.current === 'staging',
-  isDevelopment: () => ENVIRONMENT.current === 'development'
-}
+  isProduction: () => ENVIRONMENT.current === "production",
+  isStaging: () => ENVIRONMENT.current === "staging",
+  isDevelopment: () => ENVIRONMENT.current === "development",
+};
 
 function getEnvironment() {
   // Check for explicit environment variable
   if (globalThis.ENVIRONMENT) {
-    return globalThis.ENVIRONMENT.toLowerCase()
+    return globalThis.ENVIRONMENT.toLowerCase();
   }
 
   // Check for Cloudflare Workers environment indicators
-  if (typeof caches !== 'undefined' && typeof CloudflareWorkersGlobalScope !== 'undefined') {
+  if (
+    typeof caches !== "undefined" &&
+    typeof CloudflareWorkersGlobalScope !== "undefined"
+  ) {
     // In production, workers_dev should be false
-    if (globalThis.WORKER_ENV === 'production') {
-      return 'production'
+    if (globalThis.WORKER_ENV === "production") {
+      return "production";
     }
-    if (globalThis.WORKER_ENV === 'staging') {
-      return 'staging'
+    if (globalThis.WORKER_ENV === "staging") {
+      return "staging";
     }
-    return 'development'
+    return "development";
   }
 
   // Check for Vercel environment
   if (globalThis.VERCEL_ENV) {
-    return globalThis.VERCEL_ENV === 'production' ? 'production' : 'staging'
+    return globalThis.VERCEL_ENV === "production" ? "production" : "staging";
+  }
+
+  // Check for Vercel-specific worker environment
+  if (globalThis.WORKER_ENV === "vercel") {
+    return "production";
   }
 
   // Check for Netlify environment
   if (globalThis.NETLIFY) {
-    return globalThis.CONTEXT === 'production' ? 'production' : 'staging'
+    return globalThis.CONTEXT === "production" ? "production" : "staging";
   }
 
   // Default to development
-  return 'development'
+  return "development";
 }
 
 // Environment-specific configurations
@@ -53,26 +61,26 @@ export const ENV_CONFIG = {
       enableSecurityHeaders: true,
       requireHTTPS: true,
       enableCSP: true,
-      blockSuspiciousIPs: true
+      blockSuspiciousIPs: true,
     },
 
     // Production logging
     logging: {
-      level: 'error',
+      level: "error",
       enableDebug: false,
       enableTrace: false,
-      logSensitiveData: false
+      logSensitiveData: false,
     },
 
     // Production caching
     cache: {
       enabled: true,
       ttl: {
-        ip: 300,    // 5 minutes
-        geo: 3600,  // 1 hour
-        threat: 1800 // 30 minutes
+        ip: 300, // 5 minutes
+        geo: 3600, // 1 hour
+        threat: 1800, // 30 minutes
       },
-      maxSize: 1000
+      maxSize: 1000,
     },
 
     // Production rate limiting
@@ -81,16 +89,20 @@ export const ENV_CONFIG = {
       windowMs: 15 * 60 * 1000, // 15 minutes
       max: 100, // requests per window
       skipSuccessfulRequests: false,
-      skipFailedRequests: false
+      skipFailedRequests: false,
     },
 
     // Production API settings
     api: {
       enableCORS: true,
-      corsOrigins: ['*'], // Configure specific origins in production
+      corsOrigins: [
+        "https://ip.ixingchen.top",
+        "https://ixingchen.top",
+        "https://*.ixingchen.top",
+      ], // Restricted to specific trusted domains in production
       enableCompression: true,
       enableETag: true,
-      maxRequestSize: '1mb'
+      maxRequestSize: "1mb",
     },
 
     // Production monitoring
@@ -100,10 +112,10 @@ export const ENV_CONFIG = {
       enablePerformanceTracking: true,
       alertThresholds: {
         responseTime: 1000, // 1 second
-        errorRate: 0.05,    // 5%
-        memoryUsage: 0.8    // 80%
-      }
-    }
+        errorRate: 0.05, // 5%
+        memoryUsage: 0.8, // 80%
+      },
+    },
   },
 
   staging: {
@@ -114,26 +126,26 @@ export const ENV_CONFIG = {
       enableSecurityHeaders: true,
       requireHTTPS: true,
       enableCSP: true,
-      blockSuspiciousIPs: false // Allow testing from various IPs
+      blockSuspiciousIPs: false, // Allow testing from various IPs
     },
 
     // Staging logging
     logging: {
-      level: 'warn',
+      level: "warn",
       enableDebug: true,
       enableTrace: false,
-      logSensitiveData: false
+      logSensitiveData: false,
     },
 
     // Staging caching (shorter TTL for testing)
     cache: {
       enabled: true,
       ttl: {
-        ip: 60,     // 1 minute
-        geo: 300,   // 5 minutes
-        threat: 180 // 3 minutes
+        ip: 60, // 1 minute
+        geo: 300, // 5 minutes
+        threat: 180, // 3 minutes
       },
-      maxSize: 500
+      maxSize: 500,
     },
 
     // Staging rate limiting (more lenient)
@@ -142,16 +154,23 @@ export const ENV_CONFIG = {
       windowMs: 15 * 60 * 1000,
       max: 200, // Higher limit for testing
       skipSuccessfulRequests: false,
-      skipFailedRequests: false
+      skipFailedRequests: false,
     },
 
     // Staging API settings
     api: {
       enableCORS: true,
-      corsOrigins: ['*'],
+      corsOrigins: [
+        "https://ip.ixingchen.top",
+        "https://ixingchen.top",
+        "https://*.ixingchen.top",
+        "https://staging.ixingchen.top",
+        "http://localhost:3000",
+        "http://localhost:8080",
+      ], // Allow staging and development domains
       enableCompression: true,
       enableETag: true,
-      maxRequestSize: '2mb'
+      maxRequestSize: "2mb",
     },
 
     // Staging monitoring
@@ -162,9 +181,9 @@ export const ENV_CONFIG = {
       alertThresholds: {
         responseTime: 2000,
         errorRate: 0.1,
-        memoryUsage: 0.9
-      }
-    }
+        memoryUsage: 0.9,
+      },
+    },
   },
 
   development: {
@@ -175,15 +194,15 @@ export const ENV_CONFIG = {
       enableSecurityHeaders: false,
       requireHTTPS: false,
       enableCSP: false,
-      blockSuspiciousIPs: false
+      blockSuspiciousIPs: false,
     },
 
     // Development logging (verbose)
     logging: {
-      level: 'debug',
+      level: "debug",
       enableDebug: true,
       enableTrace: true,
-      logSensitiveData: true // Only in development!
+      logSensitiveData: true, // Only in development!
     },
 
     // Development caching (minimal for testing)
@@ -192,9 +211,9 @@ export const ENV_CONFIG = {
       ttl: {
         ip: 10,
         geo: 30,
-        threat: 20
+        threat: 20,
       },
-      maxSize: 100
+      maxSize: 100,
     },
 
     // Development rate limiting (very lenient)
@@ -203,16 +222,23 @@ export const ENV_CONFIG = {
       windowMs: 15 * 60 * 1000,
       max: 1000,
       skipSuccessfulRequests: true,
-      skipFailedRequests: true
+      skipFailedRequests: true,
     },
 
     // Development API settings
     api: {
       enableCORS: true,
-      corsOrigins: ['*'],
+      corsOrigins: [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:5173",
+      ], // Restricted to local development domains only
       enableCompression: false,
       enableETag: false,
-      maxRequestSize: '10mb'
+      maxRequestSize: "10mb",
     },
 
     // Development monitoring
@@ -223,51 +249,51 @@ export const ENV_CONFIG = {
       alertThresholds: {
         responseTime: 5000,
         errorRate: 0.5,
-        memoryUsage: 0.95
-      }
-    }
-  }
-}
+        memoryUsage: 0.95,
+      },
+    },
+  },
+};
 
 // Get current environment configuration
 export function getCurrentConfig() {
-  return ENV_CONFIG[ENVIRONMENT.current] || ENV_CONFIG.development
+  return ENV_CONFIG[ENVIRONMENT.current] || ENV_CONFIG.development;
 }
 
 // Get environment-specific setting
 export function getEnvSetting(path) {
-  const config = getCurrentConfig()
-  const keys = path.split('.')
-  let value = config
+  const config = getCurrentConfig();
+  const keys = path.split(".");
+  let value = config;
 
   for (const key of keys) {
-    if (value && typeof value === 'object' && key in value) {
-      value = value[key]
+    if (value && typeof value === "object" && key in value) {
+      value = value[key];
     } else {
-      return undefined
+      return undefined;
     }
   }
 
-  return value
+  return value;
 }
 
 // Check if feature is enabled in current environment
 export function isFeatureEnabled(feature) {
-  const config = getCurrentConfig()
+  const config = getCurrentConfig();
 
   switch (feature) {
-  case 'debug':
-    return config.logging.enableDebug
-  case 'cache':
-    return config.cache.enabled
-  case 'rateLimit':
-    return config.rateLimit.enabled
-  case 'monitoring':
-    return config.monitoring.enableMetrics
-  case 'securityHeaders':
-    return config.security.enableSecurityHeaders
-  default:
-    return false
+    case "debug":
+      return config.logging.enableDebug;
+    case "cache":
+      return config.cache.enabled;
+    case "rateLimit":
+      return config.rateLimit.enabled;
+    case "monitoring":
+      return config.monitoring.enableMetrics;
+    case "securityHeaders":
+      return config.security.enableSecurityHeaders;
+    default:
+      return false;
   }
 }
 
@@ -279,34 +305,136 @@ export function getSecret(name) {
     MAXMIND_USER_ID: globalThis.MAXMIND_USER_ID,
     MAXMIND_LICENSE_KEY: globalThis.MAXMIND_LICENSE_KEY,
     API_KEY_ADMIN: globalThis.API_KEY_ADMIN,
-    API_KEY_USER: globalThis.API_KEY_USER
-  }
+    API_KEY_USER: globalThis.API_KEY_USER,
+  };
 
-  return secrets[name] || null
+  return secrets[name] || null;
 }
 
 // Validate environment configuration
 export function validateEnvironment() {
-  const config = getCurrentConfig()
-  const errors = []
+  const config = getCurrentConfig();
+  const errors = [];
+  const warnings = [];
 
   // Check required settings for production
   if (ENVIRONMENT.isProduction()) {
     if (!config.security.strictMode) {
-      errors.push('Production environment must have strict mode enabled')
+      errors.push("Production environment must have strict mode enabled");
     }
 
     if (!config.security.enableSecurityHeaders) {
-      errors.push('Production environment must have security headers enabled')
+      errors.push("Production environment must have security headers enabled");
     }
 
     if (config.logging.logSensitiveData) {
-      errors.push('Production environment must not log sensitive data')
+      errors.push(
+        "CRITICAL: Production environment must not log sensitive data",
+      );
+    }
+
+    // Validate CORS configuration
+    if (config.api.corsOrigins.includes("*")) {
+      errors.push(
+        "CRITICAL: Production environment must not use wildcard CORS origins",
+      );
+    }
+
+    // Check for development-only features
+    if (config.logging.enableDebug) {
+      warnings.push("Debug logging should be disabled in production");
+    }
+
+    if (!config.cache.enabled) {
+      warnings.push("Caching should be enabled in production for performance");
+    }
+  }
+
+  // Check for staging environment
+  if (ENVIRONMENT.isStaging()) {
+    if (config.logging.logSensitiveData) {
+      warnings.push("Staging environment should not log sensitive data");
     }
   }
 
   return {
     valid: errors.length === 0,
-    errors
+    errors,
+    warnings,
+  };
+}
+
+// Runtime security check - prevents sensitive data logging in production
+export function checkSensitiveDataLogging() {
+  if (ENVIRONMENT.isProduction()) {
+    const config = getCurrentConfig();
+    if (config.logging.logSensitiveData) {
+      throw new Error(
+        "SECURITY VIOLATION: Sensitive data logging is enabled in production environment",
+      );
+    }
   }
+}
+
+// Secure logging wrapper that filters sensitive data
+export function secureLog(level, message, data = {}) {
+  const config = getCurrentConfig();
+
+  // Always filter sensitive data in production
+  if (ENVIRONMENT.isProduction() || !config.logging.logSensitiveData) {
+    data = filterSensitiveData(data);
+  }
+
+  // Only log if level is appropriate for environment
+  const logLevels = ["error", "warn", "info", "debug"];
+  const currentLevelIndex = logLevels.indexOf(config.logging.level);
+  const messageLevelIndex = logLevels.indexOf(level);
+
+  if (messageLevelIndex <= currentLevelIndex) {
+    // Use a safe logging method that doesn't expose sensitive data
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] ${message}`;
+
+    if (typeof globalThis.logger !== "undefined") {
+      globalThis.logger[level](logMessage, data);
+    } else {
+      // Fallback to console if logger not available (development only)
+      if (!ENVIRONMENT.isProduction()) {
+        // eslint-disable-next-line no-console
+        console[level](logMessage, data);
+      }
+    }
+  }
+}
+
+// Filter sensitive data from objects
+function filterSensitiveData(data) {
+  if (!data || typeof data !== "object") {
+    return data;
+  }
+
+  const sensitiveKeys = [
+    "password",
+    "token",
+    "key",
+    "secret",
+    "auth",
+    "credential",
+    "apikey",
+    "api_key",
+    "authorization",
+    "x-api-key",
+  ];
+
+  const filtered = { ...data };
+
+  for (const key in filtered) {
+    if (
+      sensitiveKeys.some((sensitive) => key.toLowerCase().includes(sensitive))
+    ) {
+      filtered[key] = "[REDACTED]";
+    }
+  }
+
+  return filtered;
 }
