@@ -3,9 +3,14 @@
   "name": "ip-api-production",
   "framework": null,
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
   "installCommand": "npm install",
   "devCommand": "npm run dev",
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
@@ -68,11 +73,6 @@
   ],
   "redirects": [
     {
-      "source": "/docs",
-      "destination": "https://github.com/IIXINGCHEN/ip-api-production#readme",
-      "permanent": false
-    },
-    {
       "source": "/github",
       "destination": "https://github.com/IIXINGCHEN/ip-api-production",
       "permanent": false
@@ -80,8 +80,8 @@
   ],
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/$1"
+      "source": "/(.*)",
+      "destination": "/api/index.js"
     }
   ],
   "env": {
