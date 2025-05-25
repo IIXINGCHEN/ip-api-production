@@ -39,7 +39,7 @@ if (!envValidation.valid) {
   if (ENVIRONMENT.isProduction()) {
     throw new Error(
       "Production environment validation failed: " +
-        envValidation.errors.join(", "),
+      envValidation.errors.join(", "),
     );
   }
 }
@@ -87,6 +87,53 @@ app.use("*", rateLimitMiddleware);
 
 // Caching
 app.use("*", cacheMiddleware);
+
+// Root endpoint - API overview
+app.get("/", (c) => {
+  const host = c.req.header("host") || "localhost";
+  const protocol = c.req.header("x-forwarded-proto") || "https";
+  const baseUrl = `${protocol}://${host}`;
+
+  return c.json({
+    name: "IP Geolocation API",
+    version: "2.0.0",
+    description: "Enhanced IP geolocation API with comprehensive threat detection",
+    environment: ENVIRONMENT.current,
+    endpoints: {
+      root: {
+        path: "/",
+        method: "GET",
+        description: "API overview and documentation"
+      },
+      health: {
+        path: "/health",
+        method: "GET",
+        description: "Health check and system status"
+      },
+      ipLookup: {
+        path: "/lookup/{ip}",
+        method: "GET",
+        description: "Get geolocation data for specific IP address",
+        example: `${baseUrl}/lookup/8.8.8.8`
+      },
+      currentIP: {
+        path: "/geo",
+        method: "GET",
+        description: "Get geolocation data for current IP address",
+        example: `${baseUrl}/geo`
+      },
+      batchLookup: {
+        path: "/batch",
+        method: "POST",
+        description: "Batch IP lookup (up to 100 IPs)",
+        example: `${baseUrl}/batch`
+      }
+    },
+    documentation: `${baseUrl}/docs`,
+    repository: "https://github.com/IIXINGCHEN/ip-api-production",
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Health check endpoint with monitoring data
 app.get("/health", (c) => {
