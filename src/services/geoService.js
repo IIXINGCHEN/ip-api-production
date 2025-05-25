@@ -26,7 +26,7 @@ export async function getGeoInfo(ip, request, options = {}) {
       try {
         const threatService = new ThreatService();
         geoInfo.threat = await threatService.getThreatInfo(ip, request);
-      } catch (error) {
+      } catch (_error) {
         geoInfo.threat = { error: "Threat detection unavailable" };
       }
     }
@@ -61,7 +61,7 @@ export async function getGeoInfo(ip, request, options = {}) {
     }
 
     return geoInfo;
-  } catch (error) {
+  } catch (_error) {
     throw new Error("Failed to get geolocation information");
   }
 }

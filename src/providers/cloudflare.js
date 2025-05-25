@@ -27,7 +27,7 @@ export class CloudflareProvider {
       };
 
       return ipInfo;
-    } catch (error) {
+    } catch (_error) {
       throw new Error("Cloudflare IP lookup failed");
     }
   }
@@ -100,7 +100,7 @@ export class CloudflareProvider {
       geoInfo.cfRay = cfRay;
 
       return geoInfo;
-    } catch (error) {
+    } catch (_error) {
       throw new Error("Cloudflare geo lookup failed");
     }
   }

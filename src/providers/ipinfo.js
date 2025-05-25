@@ -22,7 +22,7 @@ export class IPInfoProvider {
 
       const response = await this.makeIPInfoRequest(ip, "json");
       return this.parseIPResponse(response);
-    } catch (error) {
+    } catch (_error) {
       throw new Error("IPInfo IP lookup failed");
     }
   }
@@ -32,7 +32,7 @@ export class IPInfoProvider {
       // IPInfo works without token for limited requests
       const response = await this.makeIPInfoRequest(ip, "json");
       return this.parseGeoResponse(response);
-    } catch (error) {
+    } catch (_error) {
       // Don't throw error, just return null to let other providers handle it
       return null;
     }

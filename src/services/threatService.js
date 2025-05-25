@@ -92,7 +92,7 @@ export class ThreatService {
       threatInfo.timestamp = new Date().toISOString();
 
       return threatInfo;
-    } catch (error) {
+    } catch (_error) {
       // Enhanced error handling for threat detection
       if (error.message && error.message.includes("Invalid IP")) {
         throw new Error("Invalid IP address for threat analysis");
@@ -177,7 +177,7 @@ export class ThreatService {
         indicators,
         source: "enhanced_vpn_check",
       };
-    } catch (error) {
+    } catch (_error) {
       return { detected: false, riskScore: 0, indicators: [] };
     }
   }
@@ -234,7 +234,7 @@ export class ThreatService {
         indicators,
         source: "enhanced_proxy_check",
       };
-    } catch (error) {
+    } catch (_error) {
       return { detected: false, riskScore: 0, indicators: [] };
     }
   }
@@ -258,7 +258,7 @@ export class ThreatService {
         riskScore,
         source: "internal_tor_check",
       };
-    } catch (error) {
+    } catch (_error) {
       return { detected: false, riskScore: 0 };
     }
   }
@@ -310,7 +310,7 @@ export class ThreatService {
         riskScore,
         source: "internal_bot_check",
       };
-    } catch (error) {
+    } catch (_error) {
       return { detected: false, riskScore: 0 };
     }
   }
@@ -338,7 +338,7 @@ export class ThreatService {
         riskScore,
         source: "internal_reputation_check",
       };
-    } catch (error) {
+    } catch (_error) {
       return { detected: false, reputation: "unknown", riskScore: 0 };
     }
   }
@@ -375,7 +375,7 @@ export class ThreatService {
         riskScore,
         source: "internal_malicious_check",
       };
-    } catch (error) {
+    } catch (_error) {
       return { detected: false, riskScore: 0 };
     }
   }

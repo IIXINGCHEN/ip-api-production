@@ -33,7 +33,7 @@ app.get("/stats", async (c) => {
     };
 
     return c.json(stats);
-  } catch (error) {
+  } catch (_error) {
     return c.json(
       {
         error: "Internal Server Error",
@@ -60,7 +60,7 @@ app.post("/cache/clear", async (c) => {
         : "All cache cleared",
       timestamp: new Date().toISOString(),
     });
-  } catch (error) {
+  } catch (_error) {
     return c.json(
       {
         error: "Internal Server Error",
@@ -81,7 +81,7 @@ app.get("/cache", async (c) => {
       stats: cacheStats,
       timestamp: new Date().toISOString(),
     });
-  } catch (error) {
+  } catch (_error) {
     return c.json(
       {
         error: "Internal Server Error",
@@ -110,7 +110,7 @@ app.get("/health", async (c) => {
     };
 
     return c.json(health);
-  } catch (error) {
+  } catch (_error) {
     return c.json(
       {
         status: "unhealthy",
@@ -132,7 +132,7 @@ app.post("/metrics/reset", async (c) => {
       message: "Metrics reset successfully",
       timestamp: new Date().toISOString(),
     });
-  } catch (error) {
+  } catch (_error) {
     return c.json(
       {
         error: "Internal Server Error",
@@ -170,7 +170,7 @@ app.get("/config", async (c) => {
     };
 
     return c.json(config);
-  } catch (error) {
+  } catch (_error) {
     return c.json(
       {
         error: "Internal Server Error",

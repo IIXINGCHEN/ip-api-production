@@ -39,7 +39,7 @@ export class MaxMindProvider {
       // return this.parseIPResponse(response)
 
       return ipInfo;
-    } catch (error) {
+    } catch (_error) {
       throw new Error("MaxMind IP lookup failed");
     }
   }
@@ -57,7 +57,7 @@ export class MaxMindProvider {
 
       geoInfo.provider = this.name;
       return geoInfo;
-    } catch (error) {
+    } catch (_error) {
       throw new Error("MaxMind geo lookup failed");
     }
   }

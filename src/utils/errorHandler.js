@@ -242,7 +242,7 @@ export function asyncErrorHandler(fn) {
   return async (c, next) => {
     try {
       await fn(c, next);
-    } catch (error) {
+    } catch (_error) {
       return errorHandlerMiddleware(error, c);
     }
   };

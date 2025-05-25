@@ -57,7 +57,7 @@ app.get("/geo", zValidator("query", geoQuerySchema), async (c) => {
     } else {
       return c.text(response);
     }
-  } catch (error) {
+  } catch (_error) {
     return c.json(
       {
         error: "Internal Server Error",
@@ -104,7 +104,7 @@ app.get(
       } else {
         return c.text(response);
       }
-    } catch (error) {
+    } catch (_error) {
       return c.json(
         {
           error: "Internal Server Error",
@@ -170,7 +170,7 @@ app.post(
         results: response,
         timestamp: new Date().toISOString(),
       });
-    } catch (error) {
+    } catch (_error) {
       return c.json(
         {
           error: "Internal Server Error",
