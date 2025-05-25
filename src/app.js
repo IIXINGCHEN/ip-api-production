@@ -7,7 +7,6 @@ import { prettyJSON } from "hono/pretty-json";
 import {
   ENVIRONMENT,
   getCurrentConfig,
-  isFeatureEnabled,
   validateEnvironment,
   checkSensitiveDataLogging,
 } from "./config/environment.js";
@@ -40,7 +39,7 @@ if (!envValidation.valid) {
   if (ENVIRONMENT.isProduction()) {
     throw new Error(
       "Production environment validation failed: " +
-        envValidation.errors.join(", "),
+      envValidation.errors.join(", "),
     );
   }
 }
@@ -61,9 +60,7 @@ const securityScanResult = runSecurityScan();
 const envConfig = getCurrentConfig();
 
 // Global middleware - conditionally applied based on environment
-if (!ENVIRONMENT.isProduction() || isFeatureEnabled("debug")) {
-  app.use("*", logger());
-}
+// Note: Hono logger removed for production security - using custom logger instead
 
 app.use("*", prettyJSON());
 
