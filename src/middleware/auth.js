@@ -147,7 +147,7 @@ async function validateApiKey(apiKey, clientIP) {
       lastUsed: new Date().toISOString(),
       clientIP,
     };
-  } catch (error) {
+  } catch (_error) {
     return {
       valid: false,
       error: "API key validation failed",

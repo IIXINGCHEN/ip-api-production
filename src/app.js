@@ -39,7 +39,7 @@ if (!envValidation.valid) {
   if (ENVIRONMENT.isProduction()) {
     throw new Error(
       "Production environment validation failed: " +
-      envValidation.errors.join(", "),
+        envValidation.errors.join(", "),
     );
   }
 }

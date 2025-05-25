@@ -33,15 +33,15 @@
   "license": "MIT",
   "dependencies": {
     "@hono/zod-validator": "^0.5.0",
-    "@vercel/functions": "^1.4.1",
+    "@vercel/functions": "^2.1.0",
     "hono": "^4.7.10",
-    "zod": "^3.22.4"
+    "zod": "^3.25.28"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
-    "eslint": "^8.55.0",
-    "prettier": "^3.1.0",
-    "vitest": "^1.0.0"
+    "@types/node": "^22.15.21",
+    "eslint": "^9.27.0",
+    "prettier": "^3.5.3",
+    "vitest": "^3.1.4"
   },
   "packageManager": "pnpm@9.14.2"
 }
