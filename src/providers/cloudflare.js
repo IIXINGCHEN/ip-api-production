@@ -77,13 +77,13 @@ export class CloudflareProvider {
         geoInfo.flag = this.getFlag(geoInfo.countryCode);
       }
 
-      // Get region/colo information from CF-RAY header
+      // Get colo information from CF-RAY header (don't override region with colo)
       const cfRay = this.getHeaderValue(headers, "cf-ray");
       if (cfRay && !geoInfo.colo) {
         const parts = cfRay.split("-");
         if (parts.length > 1) {
           geoInfo.colo = parts[1];
-          geoInfo.region = parts[1];
+          // Don't override geographic region with datacenter code
         }
       }
 

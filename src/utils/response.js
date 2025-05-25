@@ -51,18 +51,44 @@ export function formatGeoResponse(geoInfo, options = {}) {
   // Determine IP version
   const ipVersion = geoInfo.ip && geoInfo.ip.includes(":") ? "ipv6" : "ipv4";
 
-  // Create clean response with only essential data
+  // Extract and clean data with proper fallbacks
+  const countryName = geoInfo.country || getCountryNameFromCode(geoInfo.countryCode);
+  const regionName = geoInfo.region || geoInfo.countryRegion;
+  const cityName = geoInfo.city;
+  const asnNumber = extractASNNumber(geoInfo.asOrganization || geoInfo.asn);
+  const ispName = extractISPName(geoInfo.asOrganization || geoInfo.isp || geoInfo.organization);
+
+  // Create clean response with clear field naming and backward compatibility
   let response = {
+    // IP Information
     ip: geoInfo.ip,
     [ipVersion]: geoInfo.ip,
+
+    // Geographic Information
     flag: geoInfo.flag,
-    country: geoInfo.countryCode,
-    countryRegion: geoInfo.region,
-    city: geoInfo.city,
-    region: geoInfo.colo || "Unknown",
+    country: geoInfo.countryCode,                    // Backward compatibility
+    countryName: countryName,                        // Clear country name
+    countryRegion: countryName,                      // Backward compatibility
+    region: regionName || "Unknown",                 // Fixed: actual geographic region
+    regionName: regionName,                          // Clear region name
+    city: cityName,                                  // Backward compatibility
+    cityName: cityName,                              // Clear city name
+
+    // Coordinate Information
     latitude: geoInfo.latitude ? geoInfo.latitude.toString() : null,
     longitude: geoInfo.longitude ? geoInfo.longitude.toString() : null,
-    asOrganization: geoInfo.asOrganization || geoInfo.isp,
+    timezone: geoInfo.timezone,
+
+    // Network Information
+    asOrganization: geoInfo.asOrganization || geoInfo.isp,  // Backward compatibility
+    asn: asnNumber,                                  // Clear ASN number
+    isp: ispName,                                    // Clear ISP name
+
+    // Infrastructure Information
+    datacenter: geoInfo.colo || geoInfo.datacenter, // Data center code
+    colo: geoInfo.colo,                             // Cloudflare data center
+
+    // Metadata
     timestamp: new Date().toISOString(),
     requestId: generateRequestId(),
   };
@@ -262,4 +288,51 @@ export function addResponseMetadata(response, metadata = {}) {
       ...metadata,
     },
   };
+}
+
+// Helper functions for data extraction and cleaning
+
+function getCountryNameFromCode(countryCode) {
+  // Basic country code to name mapping
+  const countryNames = {
+    'US': 'United States',
+    'CN': 'China',
+    'TW': 'Taiwan',
+    'JP': 'Japan',
+    'KR': 'South Korea',
+    'GB': 'United Kingdom',
+    'DE': 'Germany',
+    'FR': 'France',
+    'CA': 'Canada',
+    'AU': 'Australia',
+    'IN': 'India',
+    'BR': 'Brazil',
+    'RU': 'Russia',
+    'SG': 'Singapore',
+    'HK': 'Hong Kong',
+    'NL': 'Netherlands',
+    'SE': 'Sweden',
+    'NO': 'Norway',
+    'DK': 'Denmark',
+    'FI': 'Finland',
+    // Add more as needed
+  };
+
+  return countryNames[countryCode] || countryCode;
+}
+
+function extractASNNumber(asnString) {
+  if (!asnString) return null;
+
+  // Extract ASN number from strings like "AS15169" or "AS15169 Google LLC"
+  const match = asnString.toString().match(/AS(\d+)/i);
+  return match ? `AS${match[1]}` : null;
+}
+
+function extractISPName(orgString) {
+  if (!orgString) return null;
+
+  // Remove ASN prefix if present
+  const cleaned = orgString.toString().replace(/^AS\d+\s*/i, '');
+  return cleaned || null;
 }
