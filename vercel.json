@@ -8,7 +8,7 @@
   "devCommand": "npm run dev",
   "functions": {
     "index.js": {
-      "runtime": "nodejs20.x",
+      "runtime": "vercel/node@20.x",
       "maxDuration": 30,
       "memory": 1024
     }
