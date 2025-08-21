@@ -51,115 +51,51 @@ function getEnvironment() {
   return "development";
 }
 
+import { createEnvironmentConfig } from "./baseConfig.js";
+
 // Environment-specific configurations
 export const ENV_CONFIG = {
-  production: {
-    // Production security settings
+  production: createEnvironmentConfig({
     security: {
       strictMode: true,
       hideErrorDetails: true,
-      enableSecurityHeaders: true,
       requireHTTPS: true,
-      enableCSP: true,
       blockSuspiciousIPs: true,
     },
-
-    // Production logging
     logging: {
       level: "error",
-      enableDebug: false,
-      enableTrace: false,
-      logSensitiveData: false,
     },
-
-    // Production caching
-    cache: {
-      enabled: true,
-      ttl: {
-        ip: 300, // 5 minutes
-        geo: 3600, // 1 hour
-        threat: 1800, // 30 minutes
-      },
-      maxSize: 1000,
-    },
-
-    // Production rate limiting
-    rateLimit: {
-      enabled: true,
-      windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 100, // requests per window
-      skipSuccessfulRequests: false,
-      skipFailedRequests: false,
-    },
-
-    // Production API settings
     api: {
-      enableCORS: true,
       corsOrigins: [
         "https://ip.ixingchen.top",
         "https://ixingchen.top",
         "https://*.ixingchen.top",
-      ], // Restricted to specific trusted domains in production
-      enableCompression: true,
-      enableETag: true,
-      maxRequestSize: "1mb",
+      ],
     },
+  }),
 
-    // Production monitoring
-    monitoring: {
-      enableMetrics: true,
-      enableHealthChecks: true,
-      enablePerformanceTracking: true,
-      alertThresholds: {
-        responseTime: 1000, // 1 second
-        errorRate: 0.05, // 5%
-        memoryUsage: 0.8, // 80%
-      },
-    },
-  },
-
-  staging: {
-    // Staging security settings (slightly relaxed for testing)
+  staging: createEnvironmentConfig({
     security: {
       strictMode: true,
-      hideErrorDetails: false, // Show errors for debugging
-      enableSecurityHeaders: true,
+      hideErrorDetails: false, // 显示错误用于调试
       requireHTTPS: true,
-      enableCSP: true,
-      blockSuspiciousIPs: false, // Allow testing from various IPs
     },
-
-    // Staging logging
     logging: {
       level: "warn",
       enableDebug: true,
-      enableTrace: false,
-      logSensitiveData: false,
     },
-
-    // Staging caching (shorter TTL for testing)
     cache: {
-      enabled: true,
       ttl: {
-        ip: 60, // 1 minute
-        geo: 300, // 5 minutes
-        threat: 180, // 3 minutes
+        ip: 60,    // 1分钟
+        geo: 300,  // 5分钟
+        threat: 180, // 3分钟
       },
       maxSize: 500,
     },
-
-    // Staging rate limiting (more lenient)
     rateLimit: {
-      enabled: true,
-      windowMs: 15 * 60 * 1000,
-      max: 200, // Higher limit for testing
-      skipSuccessfulRequests: false,
-      skipFailedRequests: false,
+      max: 200, // 测试环境更高限制
     },
-
-    // Staging API settings
     api: {
-      enableCORS: true,
       corsOrigins: [
         "https://ip.ixingchen.top",
         "https://ixingchen.top",
@@ -167,47 +103,32 @@ export const ENV_CONFIG = {
         "https://staging.ixingchen.top",
         "http://localhost:3000",
         "http://localhost:8080",
-      ], // Allow staging and development domains
-      enableCompression: true,
-      enableETag: true,
+      ],
       maxRequestSize: "2mb",
     },
-
-    // Staging monitoring
     monitoring: {
-      enableMetrics: true,
-      enableHealthChecks: true,
-      enablePerformanceTracking: true,
       alertThresholds: {
         responseTime: 2000,
         errorRate: 0.1,
         memoryUsage: 0.9,
       },
     },
-  },
+  }),
 
-  development: {
-    // Development security settings (relaxed for development)
+  development: createEnvironmentConfig({
     security: {
       strictMode: false,
       hideErrorDetails: false,
-      enableSecurityHeaders: false,
       requireHTTPS: false,
-      enableCSP: false,
-      blockSuspiciousIPs: false,
     },
-
-    // Development logging (verbose)
     logging: {
       level: "debug",
       enableDebug: true,
       enableTrace: true,
-      logSensitiveData: true, // Only in development!
+      logSensitiveData: true, // 仅开发环境！
     },
-
-    // Development caching (minimal for testing)
     cache: {
-      enabled: false, // Disable caching in development
+      enabled: false, // 开发环境禁用缓存
       ttl: {
         ip: 10,
         geo: 30,
@@ -215,19 +136,12 @@ export const ENV_CONFIG = {
       },
       maxSize: 100,
     },
-
-    // Development rate limiting (very lenient)
     rateLimit: {
-      enabled: false, // Disable rate limiting in development
-      windowMs: 15 * 60 * 1000,
-      max: 1000,
+      max: 1000, // 开发环境宽松限制
       skipSuccessfulRequests: true,
       skipFailedRequests: true,
     },
-
-    // Development API settings
     api: {
-      enableCORS: true,
       corsOrigins: [
         "http://localhost:3000",
         "http://localhost:8080",
@@ -235,16 +149,13 @@ export const ENV_CONFIG = {
         "http://127.0.0.1:3000",
         "http://127.0.0.1:8080",
         "http://127.0.0.1:5173",
-      ], // Restricted to local development domains only
+      ],
       enableCompression: false,
       enableETag: false,
       maxRequestSize: "10mb",
     },
-
-    // Development monitoring
     monitoring: {
       enableMetrics: false,
-      enableHealthChecks: true,
       enablePerformanceTracking: false,
       alertThresholds: {
         responseTime: 5000,
@@ -252,7 +163,7 @@ export const ENV_CONFIG = {
         memoryUsage: 0.95,
       },
     },
-  },
+  }),
 };
 
 // Get current environment configuration
@@ -316,6 +227,68 @@ export function validateEnvironment() {
   const config = getCurrentConfig();
   const errors = [];
   const warnings = [];
+
+  // Validate API keys and secrets in production
+  if (ENVIRONMENT.isProduction()) {
+    const requiredSecrets = ['API_KEY_ADMIN'];
+    const optionalSecrets = ['IPINFO_TOKEN', 'MAXMIND_USER_ID', 'MAXMIND_LICENSE_KEY'];
+
+    requiredSecrets.forEach(secret => {
+      if (!getSecret(secret)) {
+        errors.push(`Missing required secret: ${secret}`);
+      }
+    });
+
+    optionalSecrets.forEach(secret => {
+      if (!getSecret(secret)) {
+        warnings.push(`Optional secret not configured: ${secret} - some features may be limited`);
+      }
+    });
+
+    // Validate CORS origins in production
+    if (!config.api.corsOrigins || config.api.corsOrigins.length === 0) {
+      errors.push("CORS origins must be configured in production");
+    }
+
+    // Validate security settings
+    if (!config.security.strictMode) {
+      warnings.push("Strict mode is disabled in production");
+    }
+
+    if (!config.security.enableSecurityHeaders) {
+      errors.push("Security headers must be enabled in production");
+    }
+  }
+
+  // Validate cache configuration
+  if (config.cache.enabled && config.cache.ttl) {
+    Object.keys(config.cache.ttl).forEach(key => {
+      if (typeof config.cache.ttl[key] !== 'number' || config.cache.ttl[key] < 0) {
+        errors.push(`Invalid cache TTL for ${key}: must be a positive number`);
+      }
+    });
+  }
+
+  // Validate rate limiting configuration
+  if (config.rateLimit.enabled) {
+    if (typeof config.rateLimit.max !== 'number' || config.rateLimit.max <= 0) {
+      errors.push("Rate limit max must be a positive number");
+    }
+    if (typeof config.rateLimit.windowMs !== 'number' || config.rateLimit.windowMs <= 0) {
+      errors.push("Rate limit window must be a positive number");
+    }
+  }
+
+  // Validate monitoring configuration
+  if (config.monitoring.enableMetrics && config.monitoring.alertThresholds) {
+    const thresholds = config.monitoring.alertThresholds;
+    if (typeof thresholds.responseTime !== 'number' || thresholds.responseTime <= 0) {
+      warnings.push("Invalid response time threshold");
+    }
+    if (typeof thresholds.errorRate !== 'number' || thresholds.errorRate < 0 || thresholds.errorRate > 1) {
+      warnings.push("Error rate threshold should be between 0 and 1");
+    }
+  }
 
   // Check required settings for production
   if (ENVIRONMENT.isProduction()) {

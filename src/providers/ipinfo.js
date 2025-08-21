@@ -1,17 +1,12 @@
 import { PROVIDERS_CONFIG } from "../config/security.js";
-import {
-  getIPType,
-  getIPVersion,
-  isPrivateIP,
-  isLoopbackIP,
-  isMulticastIP,
-} from "../utils/ipValidation.js";
+import { BaseProvider } from "./BaseProvider.js";
 
-export class IPInfoProvider {
+export class IPInfoProvider extends BaseProvider {
   constructor() {
-    this.name = "IPInfo";
-    this.priority = PROVIDERS_CONFIG.priorities.ipinfo;
-    this.config = PROVIDERS_CONFIG.endpoints.ipinfo;
+    super("IPInfo", {
+      priority: PROVIDERS_CONFIG.priorities.ipinfo,
+      ...PROVIDERS_CONFIG.endpoints.ipinfo
+    });
   }
 
   async getIPInfo(ip, request, _options = {}) {

@@ -9,7 +9,11 @@ import { ValidationError, asyncErrorHandler } from "../utils/errorHandler.js";
 const app = new Hono();
 
 // Schema for IP validation
-const ipSchema = z.object({
+const ipParamSchema = z.object({
+  ip: z.string().ip(),
+});
+
+const ipQuerySchema = z.object({
   ip: z.string().ip().optional(),
 });
 
@@ -88,7 +92,7 @@ app.get(
 // Lookup specific IP address
 app.get(
   "/lookup/:ip",
-  zValidator("param", ipSchema),
+  zValidator("param", ipParamSchema),
   asyncErrorHandler(async (c) => {
     const { ip } = c.req.valid("param");
 

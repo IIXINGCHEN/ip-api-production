@@ -18,8 +18,8 @@ const geoQuerySchema = z.object({
 });
 
 // Schema for IP validation
-const ipSchema = z.object({
-  ip: z.string().ip().optional(),
+const ipParamSchema = z.object({
+  ip: z.string().ip(),
 });
 
 // Get geolocation information for client IP
@@ -72,7 +72,7 @@ app.get("/geo", zValidator("query", geoQuerySchema), async (c) => {
 // Get geolocation for specific IP
 app.get(
   "/geo/:ip",
-  zValidator("param", ipSchema),
+  zValidator("param", ipParamSchema),
   zValidator("query", geoQuerySchema),
   async (c) => {
     try {

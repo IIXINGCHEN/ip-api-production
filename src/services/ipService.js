@@ -38,7 +38,7 @@ export async function getIPInfo(ip, request, options = {}) {
       .filter((source) => source.success);
 
     return ipInfo;
-  } catch (_error) {
+  } catch (error) {
     // Enhanced error handling with specific error types
     if (error.message === "Invalid IP address") {
       throw new Error("Invalid IP address format provided");

@@ -225,8 +225,8 @@ function scanSecurityHeaders(result, config) {
 // Authentication configuration scan
 function scanAuthConfiguration(result, _config) {
   // Check if sensitive environment variables are set
-  const hasAdminKey = !!globalThis.API_KEY_ADMIN;
-  const hasUserKey = !!globalThis.API_KEY_USER;
+  const hasAdminKey = !!(globalThis.API_KEY_ADMIN || process.env.API_KEY_ADMIN);
+  const hasUserKey = !!(globalThis.API_KEY_USER || process.env.API_KEY_USER);
 
   if (hasAdminKey) {
     result.addCheck("Admin API Key", "pass", "Admin API key is configured");

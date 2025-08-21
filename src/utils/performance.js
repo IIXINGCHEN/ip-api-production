@@ -88,7 +88,7 @@ export function performanceMiddleware(metricName = "request") {
       // Record successful request
       const result = timer.end();
       recordRequestMetric(c, result, "success");
-    } catch (_error) {
+    } catch (error) {
       // Record failed request
       const result = timer.end();
       recordRequestMetric(c, result, "error");

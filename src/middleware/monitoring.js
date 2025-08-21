@@ -56,7 +56,7 @@ export const monitoringMiddleware = async (c, next) => {
 
     // Record successful request
     recordRequestMetrics(c, startTime, true);
-  } catch (_error) {
+  } catch (error) {
     // Record failed request
     recordRequestMetrics(c, startTime, false);
 

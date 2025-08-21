@@ -1,34 +1,19 @@
 import { PROVIDERS_CONFIG } from "../config/security.js";
-import {
-  getIPType,
-  getIPVersion,
-  isPrivateIP,
-  isLoopbackIP,
-  isMulticastIP,
-} from "../utils/ipValidation.js";
+import { BaseProvider } from "./BaseProvider.js";
 
-export class CloudflareProvider {
+export class CloudflareProvider extends BaseProvider {
   constructor() {
-    this.name = "Cloudflare";
-    this.priority = PROVIDERS_CONFIG.priorities.cloudflare;
+    super("Cloudflare", {
+      priority: PROVIDERS_CONFIG.priorities.cloudflare
+    });
   }
 
   async getIPInfo(ip, request, _options = {}) {
     try {
-      // Cloudflare provides IP information through request headers
-      const ipInfo = {
-        ip,
-        type: getIPType(ip),
-        version: getIPVersion(ip),
-        isPrivate: isPrivateIP(ip),
-        isLoopback: isLoopbackIP(ip),
-        isMulticast: isMulticastIP(ip),
-        provider: this.name,
-      };
-
-      return ipInfo;
+      // 使用基础类的方法获取IP信息
+      return this.getBaseIPInfo(ip);
     } catch (_error) {
-      throw new Error("Cloudflare IP lookup failed");
+      this.handleError(error, "IP lookup");
     }
   }
 

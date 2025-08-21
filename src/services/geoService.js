@@ -2,6 +2,7 @@ import { CloudflareProvider } from "../providers/cloudflare.js";
 import { MaxMindProvider } from "../providers/maxmind.js";
 import { IPInfoProvider } from "../providers/ipinfo.js";
 import { ThreatService } from "./threatService.js";
+import { isValidIP } from "../utils/ipValidation.js";
 // import { PROVIDERS_CONFIG } from '../config/security.js' // Currently unused
 
 export async function getGeoInfo(ip, request, options = {}) {
@@ -82,6 +83,7 @@ function mergeGeoResults(results, providers) {
     ip: null,
     city: null,
     region: null,
+    regionCode: null,
     country: null,
     countryCode: null,
     countryRegion: null,
@@ -90,6 +92,8 @@ function mergeGeoResults(results, providers) {
     latitude: null,
     longitude: null,
     accuracy: null,
+    timezone: null,
+    postalCode: null,
     flag: null,
     asn: null,
     asOrganization: null,
@@ -97,10 +101,18 @@ function mergeGeoResults(results, providers) {
     organization: null,
     domain: null,
     usageType: null,
+    confidence: {},
     sources: [],
+    dataQuality: {
+      completeness: 0,
+      consistency: 0,
+      accuracy: 0
+    }
   };
 
-  // Process results in priority order
+  // Process results in priority order with validation
+  const validationResults = [];
+
   results.forEach((result, index) => {
     if (
       result.status === "fulfilled" &&
@@ -110,21 +122,61 @@ function mergeGeoResults(results, providers) {
       const data = result.value;
       const provider = providers[index];
 
-      // Merge data with priority (higher priority overwrites lower)
+      // Validate data quality before merging
+      const validation = validateGeoData(data);
+      validationResults.push({
+        provider: provider.name,
+        validation
+      });
+
+      // Merge data with priority and validation score
       Object.keys(data).forEach((key) => {
         if (
           data[key] !== null &&
           data[key] !== undefined &&
-          key !== "provider"
+          key !== "provider" &&
+          key !== "sources" &&
+          key !== "dataQuality"
         ) {
-          if (!merged[key] || provider.priority > (merged._lastPriority || 0)) {
-            merged[key] = data[key];
-            merged._lastPriority = provider.priority;
+          const currentPriority = merged._lastPriority || 0;
+          const newPriority = provider.priority * validation.score;
+
+          if (!merged[key] || newPriority > currentPriority) {
+            merged[key] = sanitizeGeoValue(key, data[key]);
+            merged._lastPriority = newPriority;
           }
         }
       });
+
+      // Merge confidence data
+      if (data.confidence) {
+        Object.keys(data.confidence).forEach(confKey => {
+          if (data.confidence[confKey] !== null && data.confidence[confKey] !== undefined) {
+            if (!merged.confidence[confKey] || provider.priority > (merged.confidence[confKey].priority || 0)) {
+              merged.confidence[confKey] = {
+                value: data.confidence[confKey],
+                priority: provider.priority,
+                source: provider.name
+              };
+            }
+          }
+        });
+      }
+
+      merged.sources.push({
+        provider: provider.name,
+        priority: provider.priority,
+        validationScore: validation.score,
+        fields: Object.keys(data).filter(
+          (key) => data[key] !== null && data[key] !== undefined,
+        ),
+        issues: validation.issues
+      });
     }
   });
+
+  // Calculate overall data quality metrics
+  merged.dataQuality = calculateDataQuality(merged, validationResults);
 
   // Clean up internal fields
   delete merged._lastPriority;
@@ -137,20 +189,7 @@ function mergeGeoResults(results, providers) {
   return merged;
 }
 
-function isValidIP(ip) {
-  if (!ip || typeof ip !== "string") {
-    return false;
-  }
-
-  // IPv4 regex
-  const ipv4Regex =
-    /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-
-  // IPv6 regex (simplified)
-  const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$|^::$/;
-
-  return ipv4Regex.test(ip) || ipv6Regex.test(ip);
-}
+// IP validation moved to utils/ipValidation.js to eliminate duplication
 
 function getFlag(countryCode) {
   if (!countryCode || countryCode.length !== 2) {
@@ -163,6 +202,125 @@ function getFlag(countryCode) {
     .map((char) => 127397 + char.charCodeAt(0));
 
   return String.fromCodePoint(...codePoints);
+}
+
+// Data validation and sanitization functions
+function validateGeoData(data) {
+  const issues = [];
+  let score = 1.0; // Start with perfect score
+
+  // Validate IP address
+  if (!data.ip || !isValidIP(data.ip)) {
+    issues.push("Invalid or missing IP address");
+    score -= 0.2;
+  }
+
+  // Validate coordinates
+  if (data.latitude !== null && data.longitude !== null) {
+    if (typeof data.latitude !== 'number' || data.latitude < -90 || data.latitude > 90) {
+      issues.push("Invalid latitude value");
+      score -= 0.1;
+    }
+    if (typeof data.longitude !== 'number' || data.longitude < -180 || data.longitude > 180) {
+      issues.push("Invalid longitude value");
+      score -= 0.1;
+    }
+  }
+
+  // Validate country code
+  if (data.countryCode && (typeof data.countryCode !== 'string' || data.countryCode.length !== 2)) {
+    issues.push("Invalid country code format");
+    score -= 0.1;
+  }
+
+  // Validate ASN
+  if (data.asn && (typeof data.asn !== 'number' || data.asn < 0)) {
+    issues.push("Invalid ASN value");
+    score -= 0.05;
+  }
+
+  // Check data completeness
+  const requiredFields = ['ip', 'country', 'countryCode'];
+  const missingFields = requiredFields.filter(field => !data[field]);
+  if (missingFields.length > 0) {
+    issues.push(`Missing required fields: ${missingFields.join(', ')}`);
+    score -= missingFields.length * 0.1;
+  }
+
+  return {
+    score: Math.max(0, score),
+    issues,
+    isValid: score > 0.5
+  };
+}
+
+function sanitizeGeoValue(key, value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  switch (key) {
+    case 'ip':
+      return typeof value === 'string' ? value.trim() : String(value);
+
+    case 'latitude':
+    case 'longitude':
+      const num = parseFloat(value);
+      return isNaN(num) ? null : num;
+
+    case 'asn':
+      const asn = parseInt(value);
+      return isNaN(asn) || asn < 0 ? null : asn;
+
+    case 'countryCode':
+    case 'regionCode':
+    case 'continentCode':
+      return typeof value === 'string' ? value.toUpperCase().trim() : null;
+
+    case 'city':
+    case 'region':
+    case 'country':
+    case 'continent':
+    case 'isp':
+    case 'organization':
+    case 'domain':
+      return typeof value === 'string' ? value.trim() : String(value);
+
+    case 'postalCode':
+      return typeof value === 'string' ? value.trim().replace(/[^a-zA-Z0-9\s-]/g, '') : null;
+
+    default:
+      return value;
+  }
+}
+
+function calculateDataQuality(merged, validationResults) {
+  const totalFields = Object.keys(merged).filter(key =>
+    !['sources', 'dataQuality', 'confidence'].includes(key)
+  ).length;
+
+  const filledFields = Object.keys(merged).filter(key =>
+    !['sources', 'dataQuality', 'confidence'].includes(key) &&
+    merged[key] !== null &&
+    merged[key] !== undefined
+  ).length;
+
+  const completeness = totalFields > 0 ? filledFields / totalFields : 0;
+
+  const avgValidationScore = validationResults.length > 0
+    ? validationResults.reduce((sum, result) => sum + result.validation.score, 0) / validationResults.length
+    : 0;
+
+  // Calculate consistency by checking if multiple sources agree
+  const consistency = validationResults.length > 1 ?
+    Math.min(1, avgValidationScore * 1.2) : avgValidationScore;
+
+  return {
+    completeness: Math.round(completeness * 100) / 100,
+    consistency: Math.round(consistency * 100) / 100,
+    accuracy: Math.round(avgValidationScore * 100) / 100,
+    overall: Math.round(((completeness + consistency + avgValidationScore) / 3) * 100) / 100
+  };
 }
 
 function getTimezoneFromCoordinates(lat, lon) {

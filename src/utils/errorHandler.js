@@ -241,8 +241,8 @@ export function createErrorResponse(type, message, details = {}) {
 export function asyncErrorHandler(fn) {
   return async (c, next) => {
     try {
-      await fn(c, next);
-    } catch (_error) {
+      return await fn(c, next);
+    } catch (error) {
       return errorHandlerMiddleware(error, c);
     }
   };
@@ -255,25 +255,5 @@ export function validateRequired(value, fieldName) {
   }
 }
 
-// IP validation helper
-export function validateIPAddress(ip, fieldName = "ip") {
-  if (!ip || typeof ip !== "string") {
-    throw new ValidationError(
-      `${fieldName} must be a valid string`,
-      fieldName,
-      ip,
-    );
-  }
-
-  // Basic IP format validation
-  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
-  const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
-
-  if (!ipv4Regex.test(ip) && !ipv6Regex.test(ip)) {
-    throw new ValidationError(
-      `${fieldName} must be a valid IP address`,
-      fieldName,
-      ip,
-    );
-  }
-}
+// IP validation moved to utils/ipValidation.js to eliminate duplication
+// Use isValidIP from ipValidation.js and throw ValidationError if needed

@@ -232,28 +232,8 @@ function getErrorName(statusCode) {
   return errorNames[statusCode] || "Unknown Error";
 }
 
-export function validateIPAddress(ip) {
-  if (!ip || typeof ip !== "string") {
-    return { valid: false, error: "IP address is required" };
-  }
-
-  // IPv4 regex
-  const ipv4Regex =
-    /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-
-  // IPv6 regex (simplified)
-  const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$|^::$/;
-
-  if (ipv4Regex.test(ip)) {
-    return { valid: true, version: 4 };
-  }
-
-  if (ipv6Regex.test(ip)) {
-    return { valid: true, version: 6 };
-  }
-
-  return { valid: false, error: "Invalid IP address format" };
-}
+// IP validation moved to utils/ipValidation.js to eliminate duplication
+// Use isValidIP, getIPVersion, and getIPAddressInfo from ipValidation.js
 
 export function sanitizeInput(input) {
   if (typeof input !== "string") {
@@ -322,7 +302,9 @@ function getCountryNameFromCode(countryCode) {
 }
 
 function extractASNNumber(asnString) {
-  if (!asnString) return null;
+  if (!asnString) {
+    return null;
+  }
 
   // Extract ASN number from strings like "AS15169" or "AS15169 Google LLC"
   const match = asnString.toString().match(/AS(\d+)/i);
@@ -330,7 +312,9 @@ function extractASNNumber(asnString) {
 }
 
 function extractISPName(orgString) {
-  if (!orgString) return null;
+  if (!orgString) {
+    return null;
+  }
 
   // Remove ASN prefix if present
   const cleaned = orgString.toString().replace(/^AS\d+\s*/i, '');

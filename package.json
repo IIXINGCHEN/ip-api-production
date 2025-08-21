@@ -19,7 +19,9 @@
     "format:check": "prettier --check src/",
     "audit": "npm audit --audit-level moderate",
     "clean": "rm -rf dist node_modules/.cache",
-    "validate": "npm run lint && npm run format:check && npm run test"
+    "validate": "npm run lint && npm run format:check && npm run test",
+    "validate:production": "node scripts/validate-production.js",
+    "pre-deploy": "npm run validate:production && npm run build"
   },
   "keywords": [
     "ip",
