@@ -1,92 +1,87 @@
 export const SECURITY_CONFIG = {
-  // Rate limiting configuration
+  // 速率限制配置
   rateLimit: {
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    windowMs: 15 * 60 * 1000, // 15分钟
+    max: 100, // 每个IP在窗口期内限制100个请求
     standardHeaders: true,
     legacyHeaders: false,
     message: {
-      error: "Too Many Requests",
-      message: "Rate limit exceeded. Please try again later.",
-      retryAfter: 900, // 15 minutes in seconds
-    },
+      error: 'Too Many Requests',
+      message: 'Rate limit exceeded. Please try again later.',
+      retryAfter: 900 // 15分钟（秒）
+    }
   },
 
-  // API key configuration
+  // 🔒 安全修复：API密钥配置
   apiKey: {
-    required: false, // Set to true to require API keys for all requests
-    header: "X-API-Key",
-    adminRequired: true, // Admin endpoints always require API key
+    required: true, // 🔒 强制要求API密钥认证
+    header: 'X-API-Key',
+    adminRequired: true, // 管理员端点始终需要API密钥
+    publicEndpoints: ['/health', '/', '/docs'], // 🔒 明确定义公开端点
+    maxFailedAttempts: 5, // 🔒 最大失败尝试次数
+    lockoutDuration: 15 * 60 * 1000 // 🔒 锁定时长（15分钟）
   },
 
-  // CORS configuration - moved to environment.js for centralized management
-  // This section is deprecated - use environment-specific CORS configuration
+  // CORS配置 - 已移至environment.js进行集中管理
+  // 此部分已弃用 - 使用特定环境的CORS配置
 
-  // Security headers
+  // 安全头
   headers: {
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "X-XSS-Protection": "1; mode=block",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Content-Security-Policy": "default-src 'self'",
-    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Content-Security-Policy': 'default-src \'self\'',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
   },
 
-  // IP whitelist (empty means all IPs allowed)
+  // IP白名单（空表示允许所有IP）
   ipWhitelist: [],
 
-  // Blocked IP patterns
+  // 被阻止的IP模式
   blockedPatterns: [
-    // Add patterns for known malicious IPs or ranges
+    // 为已知恶意IP或范围添加模式
   ],
 
-  // Threat detection
+  // 威胁检测
   threatDetection: {
     enabled: true,
     checkVPN: true,
     checkProxy: true,
     checkTor: true,
-    blockSuspicious: false, // Set to true to block suspicious IPs
-  },
-};
-
-export const CACHE_CONFIG = {
-  // Cache TTL in seconds
-  ttl: {
-    ip: 300, // 5 minutes
-    geo: 3600, // 1 hour
-    threat: 1800, // 30 minutes
-  },
-
-  // Cache keys
-  keys: {
-    ip: (ip) => `ip:${ip}`,
-    geo: (ip) => `geo:${ip}`,
-    threat: (ip) => `threat:${ip}`,
-  },
+    blockSuspicious: false // 设置为true以阻止可疑IP
+  }
 };
 
 export const PROVIDERS_CONFIG = {
-  // Data provider priorities (higher number = higher priority)
+  // 数据提供商优先级（数字越高优先级越高）
   priorities: {
     cloudflare: 100,
     maxmind: 80,
     ipinfo: 60,
-    fallback: 10,
+    ipapicom: 40,
+    fallback: 10
   },
 
-  // Provider endpoints and configurations
+  // 提供商端点和配置
   endpoints: {
     ipinfo: {
-      url: "https://ipinfo.io",
+      url: 'https://ipinfo.io',
       token: globalThis.IPINFO_TOKEN || null,
-      timeout: 5000,
+      timeout: 5000
     },
     maxmind: {
-      url: "https://geoip.maxmind.com",
+      url: 'https://geoip.maxmind.com',
       userId: globalThis.MAXMIND_USER_ID || null,
       licenseKey: globalThis.MAXMIND_LICENSE_KEY || null,
-      timeout: 5000,
+      timeout: 5000
     },
-  },
+    // ip-api.com：免费、免 token、免注册的真实 HTTP API。
+    // 限速 45 req/min（非商用授权），HTTP-only（免费版无 HTTPS）。
+    // 优先级最低，仅在 Cloudflare/MaxMind/IPInfo 无数据时作为真实兜底。
+    ipapicom: {
+      url: 'http://ip-api.com',
+      timeout: 5000
+    }
+  }
 };

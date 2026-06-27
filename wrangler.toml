@@ -1,45 +1,43 @@
+# IP Geolocation API - Production Configuration
 name = "ip-api-production"
 main = "src/app.js"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
+account_id = "828c75986bc175a04450b061a711e645"
 
-# Production configuration - disable preview URLs for security
-workers_dev = false
+# Default settings
+workers_dev = true
 minify = true
 
-# Production environment variables (non-sensitive)
+# Default environment variables (non-sensitive)
 [vars]
-ENVIRONMENT = "production"
-WORKER_ENV = "production"
-NODE_ENV = "production"
+ENVIRONMENT = "development"
+WORKER_ENV = "development"
+NODE_ENV = "development"
 
-# Production environment
+# Production environment configuration
 [env.production]
 name = "ip-api-production"
 workers_dev = false
 minify = true
-
-# Custom domain routes for production
-routes = [
-  { pattern = "ip.ixingchen.top/*", zone_name = "ixingchen.top" }
-]
 
 [env.production.vars]
 ENVIRONMENT = "production"
 WORKER_ENV = "production"
 NODE_ENV = "production"
 
-# Staging environment
+# Staging environment configuration
 [env.staging]
-name = "ip-api-staging"
-workers_dev = false
+name = "ip-api-production"
+workers_dev = true
 minify = false
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
 WORKER_ENV = "staging"
+NODE_ENV = "staging"
 
-# Development environment
+# Development environment configuration
 [env.development]
 name = "ip-api-dev"
 workers_dev = true
@@ -48,20 +46,11 @@ minify = false
 [env.development.vars]
 ENVIRONMENT = "development"
 WORKER_ENV = "development"
+NODE_ENV = "development"
 
 # Security: Sensitive environment variables should be set via:
-# wrangler secret put IPINFO_TOKEN
-# wrangler secret put MAXMIND_USER_ID
-# wrangler secret put MAXMIND_LICENSE_KEY
-# wrangler secret put API_KEY_ADMIN
-# wrangler secret put API_KEY_USER
-
-# Production deployment settings
-[build]
-command = ""
-cwd = ""
-watch_dir = "src"
-
-# Limits for production (removed for free plan compatibility)
-# [limits]
-# cpu_ms = 50
+# wrangler secret put IPINFO_TOKEN --env production
+# wrangler secret put MAXMIND_USER_ID --env production
+# wrangler secret put MAXMIND_LICENSE_KEY --env production
+# wrangler secret put API_KEY_ADMIN --env production
+# wrangler secret put API_KEY_USER --env production

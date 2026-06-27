@@ -15,7 +15,7 @@ A high-performance IP geolocation API built with Hono framework, optimized for e
 - **📊 Multiple Formats**: JSON, XML, CSV response formats
 - **🌍 IPv4/IPv6 Support**: Full dual-stack IP address support
 - **📈 Real-time Analytics**: Request tracking and performance monitoring
-- **🚀 Edge Computing**: Optimized for Cloudflare Workers, Vercel, Netlify
+- **🚀 Edge Computing**: Optimized for Cloudflare Workers
 
 ## 🚀 Quick Start
 
@@ -32,11 +32,11 @@ A high-performance IP geolocation API built with Hono framework, optimized for e
 git clone https://github.com/IIXINGCHEN/ip-api-production.git
 cd ip-api-production
 
-# Install dependencies
-npm install
+# Install dependencies from the lockfile
+npm ci
 
-# Run production validation
-npm run validate:production
+# Run local validation
+npm run build
 ```
 
 ### Deployment Options
@@ -54,25 +54,8 @@ npm run deploy:staging
 npm run deploy:dev
 ```
 
-#### ⚡ Vercel Edge Functions
-
-```bash
-# Deploy to production
-npm run deploy:vercel
-
-# Deploy preview
-npm run deploy:vercel-preview
-```
-
-#### 🌐 Netlify Edge Functions
-
-```bash
-# Deploy to production
-npm run deploy:netlify
-
-# Deploy preview
-npm run deploy:netlify-preview
-```
+The current repository is configured for Cloudflare Workers. Add another deployment target only with
+matching scripts, docs, and CI validation.
 
 ### Environment Variables
 
@@ -93,6 +76,61 @@ MAXMIND_USER_ID=your-maxmind-user-id
 MAXMIND_LICENSE_KEY=your-maxmind-license-key
 ```
 
+## 📁 项目结构 (Project Structure)
+
+```
+ip-api-production/
+├── .arc/                   # 架构文档目录 (Architecture Documentation)
+├── .github/                # GitHub配置 (GitHub Configuration)
+│   └── workflows/          # CI/CD工作流 (CI/CD Workflows)
+│       └── docker.yml      # Node质量门工作流 (Node Quality Gate Workflow)
+├── .wrangler/              # Wrangler缓存目录 (Wrangler Cache Directory)
+│   ├── state/              # 状态文件 (State Files)
+│   └── tmp/                # 临时文件 (Temporary Files)
+├── node_modules/           # 依赖包目录 (Dependencies Directory)
+├── src/                    # 源代码目录 (Source Code Directory)
+│   ├── app.js              # 主应用入口 (Main Application Entry)
+│   ├── config/             # 配置文件目录 (Configuration Directory)
+│   │   ├── baseConfig.js   # 基础配置 (Base Configuration)
+│   │   ├── environment.js  # 环境配置 (Environment Configuration)
+│   │   ├── security.js     # 安全配置 (Security Configuration)
+│   │   └── threatRules.js  # 威胁检测规则 (Threat Detection Rules)
+│   ├── providers/          # 数据提供商目录 (Data Providers Directory)
+│   │   ├── BaseProvider.js # 基础提供商类 (Base Provider Class)
+│   │   ├── cloudflare.js   # Cloudflare提供商 (Cloudflare Provider)
+│   │   ├── ipinfo.js       # IPInfo提供商 (IPInfo Provider)
+│   │   └── maxmind.js      # MaxMind提供商 (MaxMind Provider)
+│   ├── routes/             # 路由处理目录 (Routes Directory)
+│   │   └── geo-modern.js   # 地理位置API路由 (Geolocation API Routes)
+│   ├── services/           # 业务服务目录 (Business Services Directory)
+│   │   ├── geoService.js   # 地理位置服务 (Geolocation Service)
+│   │   ├── ipService.js    # IP信息服务 (IP Information Service)
+│   │   └── threatService.js # 威胁检测服务 (Threat Detection Service)
+│   └── utils/              # 工具函数目录 (Utilities Directory)
+│       ├── ipValidation.js # IP验证工具 (IP Validation Utilities)
+│       ├── response.js     # 响应格式化 (Response Formatting)
+│       └── userAgent.js    # User-Agent生成器 (User-Agent Generator)
+├── .editorconfig           # 编辑器配置文件 (Editor Configuration)
+├── .env.development        # 开发环境变量文件 (Development Environment Variables)
+├── .gitignore              # Git忽略文件 (Git Ignore File)
+├── index.js                # 项目入口文件 (Project Entry Point)
+├── LICENSE                 # 开源许可证 (Open Source License)
+├── package.json            # 项目配置文件 (Project Configuration)
+├── package-lock.json       # 依赖版本锁定文件 (Dependency Lock File)
+├── README.md               # 项目说明文档 (Project Documentation)
+└── wrangler.toml           # Wrangler配置文件 (Wrangler Configuration)
+```
+
+### 🏗️ 架构说明 (Architecture Overview)
+
+- **src/config/**: 所有配置文件，包括环境、安全、威胁检测规则
+- **src/providers/**: 多数据源提供商实现，支持Cloudflare、IPInfo、MaxMind
+- **src/services/**: 核心业务逻辑，包括地理位置查询、IP分析、威胁检测
+- **src/routes/**: API路由处理，现代化RESTful接口设计
+- **src/utils/**: 通用工具函数，IP验证、响应格式化、User-Agent生成
+- **.arc/**: 项目架构文档和设计规范存储目录
+- **.github/workflows/**: CI/CD自动化部署配置
+
 ## 📡 API Endpoints
 
 ### Core Endpoints
@@ -101,23 +139,26 @@ MAXMIND_LICENSE_KEY=your-maxmind-license-key
 |--------|----------|-------------|
 | `GET` | `/` | API overview and documentation |
 | `GET` | `/health` | Health check and system status |
-| `GET` | `/docs` | Complete API documentation |
+| `GET` | `/docs` | Current endpoint documentation |
+| `GET` | `/v1` | API version summary |
+| `GET` | `/{ip}` | Get IP information for a specific address |
 | `GET` | `/geo` | Get client IP geolocation data |
-| `GET` | `/geo/{ip}` | Get geolocation for specific IP |
-| `GET` | `/lookup/{ip}` | Get IP information for specific address |
-| `POST` | `/batch` | Batch IP lookup (max 10 IPs) |
-| `POST` | `/geo/batch` | Batch geolocation lookup (max 10 IPs) |
+| `GET` | `/geo/{ip}` | Get geolocation for a specific IP |
+| `POST` | `/v1/batch` | Batch geolocation lookup (max 10 IPs) |
+| `POST` | `/validate` | Validate request input |
+| `GET` | `/api/v1/geo` | Versioned geolocation endpoint |
+| `GET` | `/api/v1/geo/{ip}` | Versioned geolocation endpoint for a specific IP |
 
-### Admin Endpoints (Requires API Key)
+### Operational Endpoints (Requires API Key)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/admin/stats` | System statistics and metrics |
-| `GET` | `/admin/health` | Detailed health check |
-| `GET` | `/admin/cache` | Cache statistics |
-| `POST` | `/admin/cache/clear` | Clear cache (optional pattern) |
-| `GET` | `/admin/config` | System configuration |
-| `POST` | `/admin/metrics/reset` | Reset performance metrics |
+| `GET` | `/metrics` | System metrics, including Prometheus format |
+| `GET` | `/config` | Sanitized runtime configuration |
+| `GET` | `/alerts` | Alert state and history |
+| `GET` | `/monitoring/status` | Monitoring status report |
+| `GET` | `/performance` | Performance optimizer status |
+| `GET` | `/memory` | Memory optimizer status and actions |
 
 ### 📄 Response Format
 
@@ -194,9 +235,9 @@ MAXMIND_LICENSE_KEY=your-maxmind-license-key
 - ✅ **Data Privacy**: No sensitive data logging in production
 - ✅ **IP Whitelisting**: Configurable IP access control
 
-## 🌐 Deployment Platforms
+## 🌐 Deployment Platform
 
-### 🔥 Cloudflare Workers (Recommended)
+### 🔥 Cloudflare Workers
 ```bash
 npm run deploy
 ```
@@ -204,24 +245,6 @@ npm run deploy
 - Zero cold starts
 - Built-in DDoS protection
 - KV storage integration
-
-### ⚡ Vercel Edge Functions
-```bash
-npm run deploy:vercel
-```
-- Global edge runtime
-- Automatic HTTPS
-- Git integration
-- Preview deployments
-
-### 🌐 Netlify Edge Functions
-```bash
-npm run deploy:netlify
-```
-- Global CDN
-- Continuous deployment
-- Branch previews
-- Built-in forms
 
 ## ⚙️ Configuration
 
@@ -261,9 +284,10 @@ export const ENV_CONFIG = {
 | Endpoint | Description | Auth Required |
 |----------|-------------|---------------|
 | `/health` | Basic health check | No |
-| `/admin/health` | Detailed system status | Yes |
-| `/admin/stats` | Performance metrics | Yes |
-| `/admin/cache` | Cache statistics | Yes |
+| `/metrics` | Performance metrics | Yes |
+| `/config` | Sanitized runtime configuration | Yes |
+| `/alerts` | Alert state and history | Yes |
+| `/monitoring/status` | Detailed monitoring report | Yes |
 
 ### Metrics Tracked
 
@@ -276,18 +300,18 @@ export const ENV_CONFIG = {
 
 ## 🧪 Testing & Validation
 
-### Production Validation
+### Local Validation
 
 ```bash
-# Run comprehensive production checks
-npm run validate:production
+# Run lint and full tests
+npm run build
 
-# Code quality checks
+# Run checks individually
 npm run lint
-npm run format:check
+npm run test:run
 
-# Security validation
-npm run validate
+# Audit dependencies
+npm run audit
 ```
 
 ### Manual Testing
@@ -296,10 +320,10 @@ npm run validate
 # Test basic functionality
 curl https://your-domain.com/health
 curl https://your-domain.com/geo
-curl https://your-domain.com/lookup/8.8.8.8
+curl https://your-domain.com/geo/8.8.8.8
 
 # Test batch processing
-curl -X POST https://your-domain.com/batch \
+curl -X POST https://your-domain.com/v1/batch \
   -H "Content-Type: application/json" \
   -d '{"ips":["8.8.8.8","1.1.1.1"]}'
 
@@ -309,10 +333,8 @@ curl "https://your-domain.com/geo?include_threat=true"
 
 ## 📚 Documentation
 
-- [📖 Production Checklist](docs/PRODUCTION_CHECKLIST.md)
-- [🚀 Vercel Deployment](docs/VERCEL_DEPLOYMENT.md)
-- [🌐 Netlify Deployment](docs/NETLIFY_DEPLOYMENT.md)
-- [🔧 Custom Domain Setup](docs/CUSTOM_DOMAIN.md)
+- [📖 API Standards](docs/API_STANDARDS.md)
+- [⚡ Performance Optimization](docs/PERFORMANCE_OPTIMIZATION.md)
 
 ## 📄 License
 
@@ -323,7 +345,7 @@ MIT License - Production ready for commercial use.
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run `npm run validate:production`
+4. Run `npm run build`
 5. Submit a pull request
 
 ## 📞 Support

@@ -7,25 +7,20 @@
   "scripts": {
     "start": "wrangler dev",
     "dev": "wrangler dev",
-    "build": "echo 'Build completed for Workers deployment'",
+    "dev:remote": "wrangler dev --remote --env-file .env.development",
+    "build": "npm run lint && npm run test:run",
     "deploy": "wrangler deploy --env production",
     "deploy:staging": "wrangler deploy --env staging",
     "deploy:dev": "wrangler deploy --env development",
-    "test": "vitest",
-    "test:coverage": "vitest --coverage",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
-    "format": "prettier --write src/",
-    "format:check": "prettier --check src/",
-    "audit": "npm audit --audit-level moderate",
+    "audit": "npm audit --registry=https://registry.npmjs.org --audit-level moderate",
     "clean": "rm -rf dist node_modules/.cache",
-    "validate": "npm run lint && npm run format:check && npm run test",
-    "validate:production": "node scripts/validate-production.js",
-    "pre-deploy": "npm run validate:production && npm run build",
-    "deploy:netlify": "netlify deploy --prod",
-    "deploy:netlify-preview": "netlify deploy",
-    "deploy:vercel": "vercel --prod",
-    "deploy:vercel-preview": "vercel"
+    "lint": "eslint src tests",
+    "lint:fix": "eslint src tests --fix",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest --watch",
+    "test:security": "vitest run --testNamePattern='security|threat'"
   },
   "keywords": [
     "ip",
@@ -33,9 +28,7 @@
     "api",
     "hono",
     "edge",
-    "cloudflare",
-    "vercel",
-    "netlify"
+    "cloudflare"
   ],
   "author": "iixingchen",
   "license": "MIT",
@@ -45,10 +38,11 @@
     "zod": "^3.25.28"
   },
   "devDependencies": {
-    "@types/node": "^22.15.21",
-    "eslint": "^9.27.0",
-    "prettier": "^3.5.3",
-    "vitest": "^3.1.4",
+    "@eslint/js": "^8.0.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "eslint": "^8.0.0",
+    "jsdom": "^26.1.0",
+    "vitest": "^3.2.4",
     "wrangler": "^4.16.1"
   }
 }

@@ -10,15 +10,15 @@ export const BASE_SECURITY_CONFIG = {
   enableSecurityHeaders: true,
   requireHTTPS: false,
   enableCSP: true,
-  blockSuspiciousIPs: false,
+  blockSuspiciousIPs: false
 };
 
 // 基础日志配置
 export const BASE_LOGGING_CONFIG = {
-  level: "info",
+  level: 'info',
   enableDebug: false,
   enableTrace: false,
-  logSensitiveData: false,
+  logSensitiveData: false
 };
 
 // 基础缓存配置
@@ -27,9 +27,9 @@ export const BASE_CACHE_CONFIG = {
   ttl: {
     ip: 300,    // 5分钟
     geo: 3600,  // 1小时
-    threat: 1800, // 30分钟
+    threat: 1800 // 30分钟
   },
-  maxSize: 1000,
+  maxSize: 1000
 };
 
 // 基础限流配置
@@ -38,7 +38,7 @@ export const BASE_RATE_LIMIT_CONFIG = {
   windowMs: 15 * 60 * 1000, // 15分钟
   max: 100,
   skipSuccessfulRequests: false,
-  skipFailedRequests: false,
+  skipFailedRequests: false
 };
 
 // 基础API配置
@@ -47,7 +47,7 @@ export const BASE_API_CONFIG = {
   corsOrigins: [],
   enableCompression: true,
   enableETag: true,
-  maxRequestSize: "1mb",
+  maxRequestSize: '1mb'
 };
 
 // 基础监控配置
@@ -58,8 +58,8 @@ export const BASE_MONITORING_CONFIG = {
   alertThresholds: {
     responseTime: 1000,
     errorRate: 0.05,
-    memoryUsage: 0.8,
-  },
+    memoryUsage: 0.8
+  }
 };
 
 /**
@@ -89,6 +89,6 @@ export function createEnvironmentConfig(overrides = {}) {
     cache: mergeConfig(BASE_CACHE_CONFIG, overrides.cache || {}),
     rateLimit: mergeConfig(BASE_RATE_LIMIT_CONFIG, overrides.rateLimit || {}),
     api: mergeConfig(BASE_API_CONFIG, overrides.api || {}),
-    monitoring: mergeConfig(BASE_MONITORING_CONFIG, overrides.monitoring || {}),
+    monitoring: mergeConfig(BASE_MONITORING_CONFIG, overrides.monitoring || {})
   };
 }
