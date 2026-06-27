@@ -4,45 +4,75 @@
  */
 
 export function isValidIP(ip) {
-  if (!ip || typeof ip !== "string") {
+  if (!ip || typeof ip !== 'string') {
     return false;
   }
 
-  // IPv4 regex - more comprehensive validation
+  // IPv4正则表达式 - 更全面的验证
   const ipv4Regex =
     /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
 
-  // IPv6 regex - comprehensive validation including compressed forms
-  const ipv6Regex =
-    /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$|^::$|^(?:[0-9a-fA-F]{1,4}:)*::[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*$/;
+  return ipv4Regex.test(ip) || isValidIPv6(ip);
+}
 
-  return ipv4Regex.test(ip) || ipv6Regex.test(ip);
+function isValidIPv6(ip) {
+  if (!ip || !ip.includes(':')) {
+    return false;
+  }
+
+  // 禁止 IPv4 映射形式带端口/区域 ID 的歧义输入
+  if (ip.includes('%') || ip.includes('/') || ip.includes(' ')) {
+    return false;
+  }
+
+  // 拆分冒号分隔的 8 段（'::' 压缩必须存在）
+  const doubleColonIndex = ip.indexOf('::');
+  if (doubleColonIndex !== -1 && ip.indexOf('::', doubleColonIndex + 1) !== -1) {
+    return false; // 多个 '::' 非法
+  }
+
+  let parts;
+  if (doubleColonIndex !== -1) {
+    const head = ip.slice(0, doubleColonIndex).split(':').filter(Boolean);
+    const tail = ip.slice(doubleColonIndex + 2).split(':').filter(Boolean);
+    if (head.length + tail.length >= 8) {
+      return false; // '::' 至少要代表一个 0 段
+    }
+    parts = [...head, ...new Array(8 - head.length - tail.length).fill('0'), ...tail];
+  } else {
+    parts = ip.split(':');
+    if (parts.length !== 8) {
+      return false;
+    }
+  }
+
+  return parts.every((segment) => /^[0-9a-fA-F]{1,4}$/.test(segment));
 }
 
 export function getIPType(ip) {
   if (isPrivateIP(ip)) {
-    return "private";
+    return 'private';
   }
   if (isLoopbackIP(ip)) {
-    return "loopback";
+    return 'loopback';
   }
   if (isMulticastIP(ip)) {
-    return "multicast";
+    return 'multicast';
   }
   if (isLinkLocalIP(ip)) {
-    return "link-local";
+    return 'link-local';
   }
   if (isBroadcastIP(ip)) {
-    return "broadcast";
+    return 'broadcast';
   }
-  return "public";
+  return 'public';
 }
 
 export function getIPVersion(ip) {
-  if (!ip || typeof ip !== "string") {
+  if (!ip || typeof ip !== 'string') {
     return null;
   }
-  return ip.includes(":") ? 6 : 4;
+  return ip.includes(':') ? 6 : 4;
 }
 
 export function isPrivateIP(ip) {
@@ -50,29 +80,29 @@ export function isPrivateIP(ip) {
     return false;
   }
 
-  // IPv4 private ranges (RFC 1918)
-  if (ip.includes(".")) {
+  // IPv4私有地址范围 (RFC 1918)
+  if (ip.includes('.')) {
     return (
-      ip.startsWith("10.") ||
-      ip.startsWith("192.168.") ||
-      (ip.startsWith("172.") &&
-        parseInt(ip.split(".")[1]) >= 16 &&
-        parseInt(ip.split(".")[1]) <= 31) ||
-      // Additional private ranges
-      ip.startsWith("169.254.") || // Link-local
-      ip.startsWith("127.") // Loopback (technically not private but internal)
+      ip.startsWith('10.') ||
+      ip.startsWith('192.168.') ||
+      (ip.startsWith('172.') &&
+        parseInt(ip.split('.')[1]) >= 16 &&
+        parseInt(ip.split('.')[1]) <= 31) ||
+      // 其他私有地址范围
+      ip.startsWith('169.254.') || // 链路本地地址
+      ip.startsWith('127.') // 回环地址（技术上不是私有但是内部地址）
     );
   }
 
-  // IPv6 private ranges (RFC 4193, RFC 3927)
-  if (ip.includes(":")) {
+  // IPv6私有地址范围 (RFC 4193, RFC 3927)
+  if (ip.includes(':')) {
     const lowerIP = ip.toLowerCase();
     return (
-      lowerIP.startsWith("fc") ||
-      lowerIP.startsWith("fd") ||
-      lowerIP.startsWith("fe80") || // Link-local
-      lowerIP.startsWith("::1") || // Loopback
-      lowerIP === "::" // Unspecified
+      lowerIP.startsWith('fc') ||
+      lowerIP.startsWith('fd') ||
+      lowerIP.startsWith('fe80') || // 链路本地地址
+      lowerIP.startsWith('::1') || // 回环地址
+      lowerIP === '::' // 未指定地址
     );
   }
 
@@ -84,14 +114,14 @@ export function isLoopbackIP(ip) {
     return false;
   }
 
-  // IPv4 loopback
-  if (ip.includes(".")) {
-    return ip === "127.0.0.1" || ip.startsWith("127.");
+  // IPv4回环地址
+  if (ip.includes('.')) {
+    return ip === '127.0.0.1' || ip.startsWith('127.');
   }
 
-  // IPv6 loopback
-  if (ip.includes(":")) {
-    return ip === "::1";
+  // IPv6回环地址
+  if (ip.includes(':')) {
+    return ip === '::1';
   }
 
   return false;
@@ -102,15 +132,15 @@ export function isMulticastIP(ip) {
     return false;
   }
 
-  // IPv4 multicast (224.0.0.0 to 239.255.255.255)
-  if (ip.includes(".")) {
-    const firstOctet = parseInt(ip.split(".")[0]);
+  // IPv4组播地址 (224.0.0.0 到 239.255.255.255)
+  if (ip.includes('.')) {
+    const firstOctet = parseInt(ip.split('.')[0]);
     return firstOctet >= 224 && firstOctet <= 239;
   }
 
-  // IPv6 multicast (ff00::/8)
-  if (ip.includes(":")) {
-    return ip.toLowerCase().startsWith("ff");
+  // IPv6组播地址 (ff00::/8)
+  if (ip.includes(':')) {
+    return ip.toLowerCase().startsWith('ff');
   }
 
   return false;
@@ -121,14 +151,14 @@ export function isLinkLocalIP(ip) {
     return false;
   }
 
-  // IPv4 link-local (169.254.0.0/16)
-  if (ip.includes(".")) {
-    return ip.startsWith("169.254.");
+  // IPv4链路本地地址 (169.254.0.0/16)
+  if (ip.includes('.')) {
+    return ip.startsWith('169.254.');
   }
 
-  // IPv6 link-local (fe80::/10)
-  if (ip.includes(":")) {
-    return ip.toLowerCase().startsWith("fe80");
+  // IPv6链路本地地址 (fe80::/10)
+  if (ip.includes(':')) {
+    return ip.toLowerCase().startsWith('fe80');
   }
 
   return false;
@@ -139,86 +169,17 @@ export function isBroadcastIP(ip) {
     return false;
   }
 
-  // IPv4 broadcast addresses
-  if (ip.includes(".")) {
+  // IPv4广播地址
+  if (ip.includes('.')) {
     return (
-      ip === "255.255.255.255" || // Limited broadcast
-      ip.endsWith(".255") // Network broadcast (simplified check)
+      ip === '255.255.255.255' || // 受限广播
+      ip.endsWith('.255') // 网络广播（简化检查）
     );
   }
 
-  // IPv6 doesn't have broadcast (uses multicast instead)
+  // IPv6没有广播（使用组播代替）
   return false;
 }
 
-export function isPublicIP(ip) {
-  if (!ip) {
-    return false;
-  }
-
-  return (
-    !isPrivateIP(ip) &&
-    !isLoopbackIP(ip) &&
-    !isMulticastIP(ip) &&
-    !isLinkLocalIP(ip) &&
-    !isBroadcastIP(ip)
-  );
-}
-
-export function normalizeIP(ip) {
-  if (!ip || typeof ip !== "string") {
-    return null;
-  }
-
-  // Trim whitespace
-  ip = ip.trim();
-
-  // IPv6 normalization - expand compressed notation
-  if (ip.includes(":")) {
-    // Basic IPv6 normalization (can be enhanced)
-    return ip.toLowerCase();
-  }
-
-  // IPv4 normalization - ensure proper format
-  if (ip.includes(".")) {
-    const parts = ip.split(".");
-    if (parts.length === 4) {
-      // Remove leading zeros and validate each octet
-      const normalizedParts = parts.map((part) => {
-        const num = parseInt(part, 10);
-        return num >= 0 && num <= 255 ? num.toString() : null;
-      });
-
-      if (normalizedParts.every((part) => part !== null)) {
-        return normalizedParts.join(".");
-      }
-    }
-  }
-
-  return null;
-}
-
-export function getIPAddressInfo(ip) {
-  if (!isValidIP(ip)) {
-    return {
-      valid: false,
-      error: "Invalid IP address format",
-    };
-  }
-
-  const normalized = normalizeIP(ip);
-
-  return {
-    valid: true,
-    original: ip,
-    normalized,
-    version: getIPVersion(ip),
-    type: getIPType(ip),
-    isPrivate: isPrivateIP(ip),
-    isLoopback: isLoopbackIP(ip),
-    isMulticast: isMulticastIP(ip),
-    isLinkLocal: isLinkLocalIP(ip),
-    isBroadcast: isBroadcastIP(ip),
-    isPublic: isPublicIP(ip),
-  };
-}
+// isPublicIP / normalizeIP / getIPAddressInfo 已移除：0 外部引用；
+// IP 校验/分类用 isValidIP / getIPType / getIPVersion / isPrivateIP 等单一职责函数。

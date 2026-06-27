@@ -1,0 +1,58 @@
+# IP Geolocation API - Production Configuration Template
+# 复制此文件为 wrangler.toml 并填入实际值
+
+name = "ip-api-production"
+main = "src/app.js"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+# account_id = "your-cloudflare-account-id-here"
+
+# Default settings
+workers_dev = true
+minify = true
+
+# Default environment variables (non-sensitive)
+[vars]
+ENVIRONMENT = "development"
+WORKER_ENV = "development"
+NODE_ENV = "development"
+
+# Production environment configuration
+[env.production]
+name = "ip-api-production"
+workers_dev = false
+minify = true
+
+[env.production.vars]
+ENVIRONMENT = "production"
+WORKER_ENV = "production"
+NODE_ENV = "production"
+
+# Staging environment configuration
+[env.staging]
+name = "ip-api-staging"
+workers_dev = true
+minify = false
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+WORKER_ENV = "staging"
+NODE_ENV = "staging"
+
+# Development environment configuration
+[env.development]
+name = "ip-api-dev"
+workers_dev = true
+minify = false
+
+[env.development.vars]
+ENVIRONMENT = "development"
+WORKER_ENV = "development"
+NODE_ENV = "development"
+
+# Security: Sensitive environment variables should be set via:
+# wrangler secret put IPINFO_TOKEN --env production
+# wrangler secret put MAXMIND_USER_ID --env production
+# wrangler secret put MAXMIND_LICENSE_KEY --env production
+# wrangler secret put API_KEY_ADMIN --env production
+# wrangler secret put API_KEY_USER --env production

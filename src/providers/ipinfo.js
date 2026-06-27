@@ -1,198 +1,102 @@
-import { PROVIDERS_CONFIG } from "../config/security.js";
-import { BaseProvider } from "./BaseProvider.js";
+import { PROVIDERS_CONFIG } from '../config/security.js';
+import { BaseProvider, createGeoData } from './BaseProvider.js';
+import { generateProviderUserAgent } from '../utils/userAgent.js';
 
+/**
+ * 🟢 IPInfo Provider（异步，需 token）
+ */
 export class IPInfoProvider extends BaseProvider {
   constructor() {
-    super("IPInfo", {
+    super('IPInfo', {
       priority: PROVIDERS_CONFIG.priorities.ipinfo,
+      tier: 'async',
       ...PROVIDERS_CONFIG.endpoints.ipinfo
     });
   }
 
-  async getIPInfo(ip, request, _options = {}) {
+  async fetch(ip, opts = {}) {
     try {
-      if (!this.isConfigured()) {
-        throw new Error("IPInfo not configured");
-      }
-
-      const response = await this.makeIPInfoRequest(ip, "json");
-      return this.parseIPResponse(response);
-    } catch (_error) {
-      throw new Error("IPInfo IP lookup failed");
+      const response = await this.makeIPInfoRequest(ip);
+      return this.parseGeoResponse(response, opts);
+    } catch (error) {
+      // 抛类型化错误：orchestrator 的 allSettled 会跳过并记录，兜底逻辑不受影响
+      throw this.classify(error, 'IPInfo lookup');
     }
   }
 
-  async getGeoInfo(ip, request, _options = {}) {
-    try {
-      // IPInfo works without token for limited requests
-      const response = await this.makeIPInfoRequest(ip, "json");
-      return this.parseGeoResponse(response);
-    } catch (_error) {
-      // Don't throw error, just return null to let other providers handle it
-      return null;
-    }
-  }
-
-  async makeIPInfoRequest(ip, format = "json") {
+  async makeIPInfoRequest(ip) {
     const baseUrl = this.config.url;
     const token = this.config.token;
 
-    let url = `${baseUrl}/${ip}/${format}`;
-
-    // Add token if available
+    let url = `${baseUrl}/${ip}/json`;
     if (token) {
       url += `?token=${token}`;
     }
 
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "IP-API/2.0",
-      },
-      signal: AbortSignal.timeout(this.config.timeout),
-    });
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': generateProviderUserAgent('IPInfo')
+        },
+        signal: AbortSignal.timeout(this.config.timeout)
+      });
 
-    if (!response.ok) {
-      throw new Error(
-        `IPInfo API error: ${response.status} ${response.statusText}`,
-      );
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(
+          `IPInfo API error: ${response.status} ${response.statusText} - ${errorBody}`
+        );
+      }
+
+      const data = await response.json();
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid response format from IPInfo API');
+      }
+      return data;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error('IPInfo API timeout');
+      }
+      throw error;
     }
-
-    return await response.json();
   }
 
-  parseIPResponse(response) {
-    return {
-      ip: response.ip,
-      type: getIPType(response.ip),
-      version: getIPVersion(response.ip),
-      isPrivate: isPrivateIP(response.ip),
-      isLoopback: isLoopbackIP(response.ip),
-      isMulticast: isMulticastIP(response.ip),
-      hostname: response.hostname,
-      provider: this.name,
-    };
-  }
-
-  parseGeoResponse(response) {
-    // Parse IPInfo response format
-    const location = response.loc ? response.loc.split(",") : [null, null];
-    const latitude = location[0] ? parseFloat(location[0]) : null;
-    const longitude = location[1] ? parseFloat(location[1]) : null;
-
-    return {
-      ip: response.ip,
-      city: response.city,
-      region: response.region,
-      country: response.country_name || this.getCountryName(response.country),
-      countryCode: response.country,
-      latitude,
-      longitude,
-      timezone: response.timezone,
-      asn: response.asn ? this.parseASN(response.asn) : null,
-      asOrganization: response.org,
-      isp: response.org,
-      organization: response.org,
-      hostname: response.hostname,
-      postal: response.postal,
-      provider: this.name,
-    };
+  parseGeoResponse(response, _opts = {}) {
+    const location = response.loc ? response.loc.split(',') : [null, null];
+    return createGeoData({
+      ip: response.ip || null,
+      country: {
+        name: response.country_name || null,
+        code: response.country || null,
+        region: response.region || null,
+        city: response.city || null,
+        continent: null,
+        continentCode: null
+      },
+      location: {
+        coordinates: { latitude: location[0], longitude: location[1] },
+        timezone: response.timezone || null,
+        postalCode: response.postal || null // 修复字段漂移：IPInfo 的 postal → postalCode
+      },
+      network: {
+        asn: this.parseASN(response.asn),
+        organization: response.org || null,
+        isp: response.org || null,
+        domain: null
+      }
+    });
   }
 
   parseASN(asnString) {
-    // IPInfo returns ASN in format "AS15169 Google LLC"
-    if (!asnString) {
-      return null;
-    }
-
-    const match = asnString.match(/^AS(\d+)/);
-    return match ? parseInt(match[1]) : null;
-  }
-
-  getCountryName(countryCode) {
-    // Simple country code to name mapping
-    const countryNames = {
-      US: "United States",
-      GB: "United Kingdom",
-      CA: "Canada",
-      AU: "Australia",
-      DE: "Germany",
-      FR: "France",
-      JP: "Japan",
-      CN: "China",
-      IN: "India",
-      BR: "Brazil",
-      RU: "Russia",
-      IT: "Italy",
-      ES: "Spain",
-      KR: "South Korea",
-      MX: "Mexico",
-      NL: "Netherlands",
-      SE: "Sweden",
-      NO: "Norway",
-      DK: "Denmark",
-      FI: "Finland",
-    };
-
-    return countryNames[countryCode] || countryCode;
+    if (!asnString) return null;
+    const match = String(asnString).match(/^AS(\d+)/);
+    return match ? parseInt(match[1], 10) : null;
   }
 
   isConfigured() {
-    // IPInfo can work without a token but with rate limits
-    // Return true if we have a token or if we want to use the free tier
-    return true;
-  }
-
-  // IP validation functions are now imported from utils/ipValidation.js
-
-  // Additional IPInfo-specific methods
-  async getBulkData(ips) {
-    if (!this.config.token) {
-      throw new Error("Bulk requests require an IPInfo token");
-    }
-
-    const response = await fetch(`${this.config.url}/batch`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.config.token}`,
-      },
-      body: JSON.stringify(ips),
-      signal: AbortSignal.timeout(this.config.timeout * 2), // Longer timeout for bulk
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `IPInfo bulk API error: ${response.status} ${response.statusText}`,
-      );
-    }
-
-    return await response.json();
-  }
-
-  async getASNInfo(asn) {
-    let url = `${this.config.url}/AS${asn}/json`;
-    const token = this.config.token;
-
-    if (token) {
-      url += `?token=${token}`;
-    }
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      signal: AbortSignal.timeout(this.config.timeout),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `IPInfo ASN API error: ${response.status} ${response.statusText}`,
-      );
-    }
-
-    return await response.json();
+    // 无 token 时禁用：否则每次查询都无认证打到 ipinfo.io（SLO/成本/隐私风险）
+    return Boolean(this.config.token);
   }
 }

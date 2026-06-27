@@ -78,6 +78,7 @@ web_modules/
 
 # dotenv environment variable files
 .env
+.env.development
 .env.development.local
 .env.test.local
 .env.production.local
@@ -148,3 +149,6 @@ dist
 
 # Local Netlify folder
 .netlify
+
+# 本地工作流笔记/测试脚本（含开发密钥，不应入库）
+tasks/
