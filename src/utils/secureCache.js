@@ -314,26 +314,31 @@ class SecureCache {
 let geoCache = null;
 let rateLimitCache = null;
 
-function getGeoCache() {
-  if (!geoCache) {
-    geoCache = new SecureCache({
+// 防御性读 config：configManager 未 initialize 时 config.get 抛错（某些单元测试不走 init），
+// fallback 值镜像 configManager schema default。production（已 init）读 config。
+function readCacheOpts() {
+  try {
+    return {
       maxSize: config.get('cache.maxSize', 10000),
       defaultTTL: config.get('cache.ttl', 300000),
       cacheSalt: config.get('cache.salt', 'ip-api-cache-salt'),
       enableCleanup: true
-    });
+    };
+  } catch {
+    return { maxSize: 10000, defaultTTL: 300000, cacheSalt: 'ip-api-cache-salt', enableCleanup: true };
+  }
+}
+
+function getGeoCache() {
+  if (!geoCache) {
+    geoCache = new SecureCache(readCacheOpts());
   }
   return geoCache;
 }
 
 function getRateLimitCache() {
   if (!rateLimitCache) {
-    rateLimitCache = new SecureCache({
-      maxSize: config.get('cache.maxSize', 10000),
-      defaultTTL: config.get('cache.ttl', 300000),
-      cacheSalt: config.get('cache.salt', 'ip-api-cache-salt'),
-      enableCleanup: true
-    });
+    rateLimitCache = new SecureCache(readCacheOpts());
   }
   return rateLimitCache;
 }
