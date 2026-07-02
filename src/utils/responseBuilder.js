@@ -11,6 +11,26 @@
 import { generateRequestId } from './response.js';
 
 const API_VERSION = 'v1';
+const DEFAULT_BASE_URL = 'https://ip.ixingchen.top';
+const ALLOWED_HOSTS = new Set(['ip.ixingchen.top', 'ixingchen.top', 'localhost', '127.0.0.1']);
+
+function isValidBaseUrl(value) {
+  if (typeof value !== 'string') return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeHost(value) {
+  if (typeof value !== 'string') return null;
+  const host = value.trim().toLowerCase();
+  if (!/^[a-z0-9.-]+(?::\d{1,5})?$/.test(host)) return null;
+  const hostname = host.split(':')[0];
+  return ALLOWED_HOSTS.has(hostname) ? host : null;
+}
 
 /**
  * 构造 meta 元数据块
@@ -87,15 +107,20 @@ export function buildLinks(baseUrl, rels = {}) {
 }
 
 /**
- * 从 Hono Context 提取基础 URL
+ * 从 Hono Context 提取基础 URL。生产优先使用 API_BASE_URL，避免 Host Header Poisoning。
  */
 export function getBaseUrl(c) {
+  const configured = c?.env?.API_BASE_URL || c?.env?.PUBLIC_BASE_URL;
+  if (isValidBaseUrl(configured)) {
+    return configured.replace(/\/$/, '');
+  }
   try {
-    const host = c?.req?.header?.('host') || 'localhost';
-    const protocol = c?.req?.header?.('x-forwarded-proto') || 'https';
+    const host = sanitizeHost(c?.req?.header?.('host'));
+    if (!host) return DEFAULT_BASE_URL;
+    const protocol = host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https';
     return `${protocol}://${host}`;
   } catch {
-    return 'https://localhost';
+    return DEFAULT_BASE_URL;
   }
 }
 

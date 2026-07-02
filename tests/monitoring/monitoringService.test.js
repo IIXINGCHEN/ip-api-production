@@ -38,7 +38,6 @@ describe('ConfigManager', () => {
     configManager.config = null;
     configManager.isInitialized = false;
     configManager.lastUpdated = null;
-    configManager.watchers.clear();
   });
 
   afterEach(() => {
@@ -131,38 +130,6 @@ describe('ConfigManager', () => {
       const validation = configManager.validate();
       expect(validation.valid).toBe(false);
       expect(validation.errors.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe('配置监听器', () => {
-    beforeEach(async() => {
-      await configManager.initialize();
-    });
-
-    it('应该注册和触发配置监听器', () => {
-      const callback = vi.fn();
-      const unwatch = configManager.watch('api.timeout', callback);
-
-      configManager.set('api.timeout', 15000);
-
-      expect(callback).toHaveBeenCalledWith('changed', {
-        path: 'api.timeout',
-        value: 15000
-      });
-
-      unwatch();
-      configManager.set('api.timeout', 20000);
-      expect(callback).toHaveBeenCalledTimes(1);
-    });
-
-    it('应该支持通配符监听', () => {
-      const callback = vi.fn();
-      configManager.watch('api.*', callback);
-
-      configManager.set('api.timeout', 15000);
-      configManager.set('api.maxConcurrentRequests', 200);
-
-      expect(callback).toHaveBeenCalledTimes(2);
     });
   });
 

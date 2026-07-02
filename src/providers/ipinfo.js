@@ -2,21 +2,26 @@ import { PROVIDERS_CONFIG } from '../config/security.js';
 import { BaseProvider, createGeoData } from './BaseProvider.js';
 import { generateProviderUserAgent } from '../utils/userAgent.js';
 
+function runtimeValue(env, name) {
+  return env?.[name] || (typeof globalThis !== 'undefined' ? globalThis[name] : undefined) || null;
+}
+
 /**
  * 🟢 IPInfo Provider（异步，需 token）
  */
 export class IPInfoProvider extends BaseProvider {
-  constructor() {
+  constructor(env = {}) {
     super('IPInfo', {
       priority: PROVIDERS_CONFIG.priorities.ipinfo,
       tier: 'async',
-      ...PROVIDERS_CONFIG.endpoints.ipinfo
+      ...PROVIDERS_CONFIG.endpoints.ipinfo,
+      token: runtimeValue(env, 'IPINFO_TOKEN')
     });
   }
 
   async fetch(ip, opts = {}) {
     try {
-      const response = await this.makeIPInfoRequest(ip);
+      const response = await this.makeIPInfoRequest(ip, opts);
       return this.parseGeoResponse(response, opts);
     } catch (error) {
       // 抛类型化错误：orchestrator 的 allSettled 会跳过并记录，兜底逻辑不受影响
@@ -24,13 +29,13 @@ export class IPInfoProvider extends BaseProvider {
     }
   }
 
-  async makeIPInfoRequest(ip) {
+  async makeIPInfoRequest(ip, opts = {}) {
     const baseUrl = this.config.url;
     const token = this.config.token;
 
     let url = `${baseUrl}/${ip}/json`;
     if (token) {
-      url += `?token=${token}`;
+      url += `?token=${encodeURIComponent(token)}`;
     }
 
     try {
@@ -40,7 +45,7 @@ export class IPInfoProvider extends BaseProvider {
           Accept: 'application/json',
           'User-Agent': generateProviderUserAgent('IPInfo')
         },
-        signal: AbortSignal.timeout(this.config.timeout)
+        signal: opts.signal || AbortSignal.timeout(this.config.timeout)
       });
 
       if (!response.ok) {

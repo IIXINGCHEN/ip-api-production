@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { PerformanceOptimizer } from '../../src/services/performanceOptimizer.js';
+import { GeoLookup } from '../../src/services/geoLookup.js';
 import { MetricsCollector, HealthChecker, MonitoringService } from '../../src/monitoring/monitoringService.js';
 import { ThreatService } from '../../src/services/threatService.js';
 import { isWorkersRuntime, isNodeRuntime, hasReliableTimers, getMemoryUsage } from '../../src/utils/runtime.js';
@@ -37,7 +37,7 @@ describe('运行时检测 (utils/runtime.js)', () => {
 
 describe('#1 BLOCKER: BatchProcessor 并发批次必须全部结算', () => {
   it('不同 key 的并发批次互不阻塞（旧 processing 标志会让后到批次永久挂起）', async() => {
-    const optimizer = new PerformanceOptimizer();
+    const optimizer = new GeoLookup();
     const bp = optimizer.batchProcessor;
 
     const slow = bp.addRequest('1.1.1.1', async() => {
@@ -53,7 +53,7 @@ describe('#1 BLOCKER: BatchProcessor 并发批次必须全部结算', () => {
   }, 5000);
 
   it('同一 key 的请求合并为一次执行', async() => {
-    const optimizer = new PerformanceOptimizer();
+    const optimizer = new GeoLookup();
     let executions = 0;
     const fn = async() => {
       executions++;
@@ -74,7 +74,7 @@ describe('#1 BLOCKER: BatchProcessor 并发批次必须全部结算', () => {
 
 describe('#5 cleanup() 不得打断在途合并请求', () => {
   it('例行 cleanup 期间在途批处理请求正常完成', async() => {
-    const optimizer = new PerformanceOptimizer();
+    const optimizer = new GeoLookup();
     const pending = optimizer.batchProcessor.addRequest('4.4.4.4', async() => {
       await new Promise(resolve => setTimeout(resolve, 60));
       return 'survived';
@@ -87,7 +87,7 @@ describe('#5 cleanup() 不得打断在途合并请求', () => {
   }, 5000);
 
   it('destroy() 才结算（拒绝）在途请求', async() => {
-    const optimizer = new PerformanceOptimizer();
+    const optimizer = new GeoLookup();
     const pending = optimizer.batchProcessor
       .addRequest('5.5.5.5', async() => 'never')
       .catch(error => error.message);
@@ -99,7 +99,7 @@ describe('#5 cleanup() 不得打断在途合并请求', () => {
 });
 
 describe('#6 DataCompressor 不得丢弃字段', () => {
-  const { DataCompressor } = PerformanceOptimizer;
+  const { DataCompressor } = GeoLookup;
 
   it('缓存压缩保留 timezone/continent/postalCode/org/accuracy 等全部字段', () => {
     const data = {
@@ -142,18 +142,21 @@ describe('#11 ProviderPool 按 lastUsed 淘汰', () => {
       isConfigured() { return true; }
     }
 
-    const optimizer = new PerformanceOptimizer();
+    const optimizer = new GeoLookup();
     const pool = optimizer.providerPool;
     pool.getProvider(FakeProvider);
-    expect(pool.providers.has('FakeProvider')).toBe(true);
+    // ProviderPool.getProvider 实际用 key = `${name}:${fingerprint}`
+    // （FakeProvider 不在 IPInfo/MaxMind/IPApiCom 名单中 → fingerprint = 'default'）
+    const poolKey = 'FakeProvider:default';
+    expect(pool.providers.has(poolKey)).toBe(true);
 
     // 模拟 11 分钟未使用，并允许 cleanup 节流窗口通过
-    pool.providers.get('FakeProvider').lastUsed = Date.now() - 660000;
+    pool.providers.get(poolKey).lastUsed = Date.now() - 660000;
     pool.lastCleanup = Date.now() - 400000;
 
     pool.cleanup();
 
-    expect(pool.providers.has('FakeProvider')).toBe(false);
+    expect(pool.providers.has(poolKey)).toBe(false);
     optimizer.destroy();
   });
 });
@@ -166,16 +169,18 @@ describe('#12 合并查询：威胁检测单次执行 + 调用方结果隔离', 
   it('并发 includeThreat 查询只跑一次 ThreatService，且各自拿到独立副本', async() => {
     const threatSpy = vi.spyOn(ThreatService.prototype, 'getThreatInfo');
 
-    const optimizer = new PerformanceOptimizer();
-    optimizer.getOptimizedProviders = async() => [];
+    // 🆕 PR 4 改写：原 `optimizer.getOptimizedProviders = async() => []` 是 monkey-patch
+    // 穿透到 instance 私有方法，违反"the interface is the test surface"。现在改用构造期
+    // seam `new GeoLookup({ providers: [] })` —— 走真构造器，seam 不破。
+    const optimizer = new GeoLookup({ providers: [] });
 
     const request = createMockRequest('/', {
       headers: { 'user-agent': 'vitest-agent/1.0' }
     });
 
     const [r1, r2] = await Promise.all([
-      optimizer.getOptimizedGeoInfo('203.0.113.77', request, { includeThreat: true }),
-      optimizer.getOptimizedGeoInfo('203.0.113.77', request, { includeThreat: true })
+      optimizer.get('203.0.113.77', request, { includeThreat: true }),
+      optimizer.get('203.0.113.77', request, { includeThreat: true })
     ]);
 
     expect(threatSpy).toHaveBeenCalledTimes(1); // 旧实现每个 caller 各跑一次
@@ -187,6 +192,32 @@ describe('#12 合并查询：威胁检测单次执行 + 调用方结果隔离', 
     // 一方修改不得污染另一方
     r1.threat.riskScore = 999;
     expect(r2.threat.riskScore).not.toBe(999);
+
+    optimizer.destroy();
+  }, 10000);
+});
+
+describe('M1: threat 检测失败时不缓存错误哨兵', () => {
+  it('threatDetector throw 时结果返回 threat.error，但不写入缓存（下次重跑）', async() => {
+    const throwingDetector = vi.fn().mockRejectedValue(new Error('threat svc down'));
+    const optimizer = new GeoLookup({
+      providers: [],
+      threatDetector: throwingDetector
+    });
+
+    const request = createMockRequest('/', { headers: { 'user-agent': 'x' } });
+
+    // 第一次查询：threat 失败 → 结果带 error 哨兵，但不缓存
+    const r1 = await optimizer.get('203.0.113.99', request, { includeThreat: true });
+    expect(r1.threat).toEqual({ error: 'Threat detection unavailable' });
+    // 缓存应为空（threat 失败跳过 cache.set）
+    expect(optimizer.cache.cache.size).toBe(0);
+
+    // 第二次查询：因未缓存，threatDetector 应被再次调用（而非命中错误缓存）
+    throwingDetector.mockResolvedValue({ riskScore: 10, threats: {} });
+    const r2 = await optimizer.get('203.0.113.99', request, { includeThreat: true });
+    expect(throwingDetector).toHaveBeenCalledTimes(2); // 两次都跑了 detector
+    expect(r2.threat).toEqual({ riskScore: 10, threats: {} }); // 第二次拿到真实结果，非错误哨兵
 
     optimizer.destroy();
   }, 10000);

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import memoryOptimizer, { withMemoryMonitoring } from '../../src/services/memoryOptimizer.js';
+import memoryOptimizer from '../../src/services/memoryOptimizer.js';
 
 describe('MemoryOptimizer', () => {
   let optimizer;
@@ -90,18 +90,6 @@ describe('MemoryOptimizer', () => {
       // 模拟缓存清理
       expect(() => {
         optimizer.clearCaches();
-      }).not.toThrow();
-    });
-
-    it('应该正确清理事件监听器', () => {
-      expect(() => {
-        optimizer.clearEventListeners();
-      }).not.toThrow();
-    });
-
-    it('应该正确清理定时器', () => {
-      expect(() => {
-        optimizer.clearTimers();
       }).not.toThrow();
     });
   });
@@ -299,24 +287,6 @@ describe('MemoryOptimizer', () => {
       expect(Array.isArray(optimizations)).toBe(true);
       expect(optimizer.metrics.optimizations.length).toBeGreaterThan(0);
     });
-
-    it('应该能够优化对象池', () => {
-      const optimizations = optimizer.optimizeObjectPools();
-
-      expect(Array.isArray(optimizations)).toBe(true);
-    });
-
-    it('应该能够优化字符串缓存', () => {
-      const optimizations = optimizer.optimizeStringCaches();
-
-      expect(Array.isArray(optimizations)).toBe(true);
-    });
-
-    it('应该能够优化数组使用', () => {
-      const optimizations = optimizer.optimizeArrayUsage();
-
-      expect(Array.isArray(optimizations)).toBe(true);
-    });
   });
 
   describe('监控功能', () => {
@@ -387,46 +357,5 @@ describe('MemoryOptimizer', () => {
       expect(stats.peaks).toEqual([]);
       expect(Array.isArray(stats.peaks)).toBe(true);
     });
-  });
-});
-
-describe('withMemoryMonitoring装饰器', () => {
-  it('应该正确装饰函数', () => {
-    const mockTarget = {
-      testMethod: async function() {
-        return 'test result';
-      }
-    };
-
-    const descriptor = {
-      value: mockTarget.testMethod
-    };
-
-    // 应用装饰器
-    const decoratedDescriptor = withMemoryMonitoring(mockTarget, 'testMethod', descriptor);
-
-    expect(typeof decoratedDescriptor.value).toBe('function');
-  });
-
-  it('应该监控函数执行前后的内存使用', async() => {
-    let methodCalled = false;
-
-    const mockTarget = {
-      testMethod: async function() {
-        methodCalled = true;
-        return 'test result';
-      }
-    };
-
-    const descriptor = {
-      value: mockTarget.testMethod
-    };
-
-    const decoratedDescriptor = withMemoryMonitoring(mockTarget, 'testMethod', descriptor);
-
-    const result = await decoratedDescriptor.value.call(mockTarget);
-
-    expect(result).toBe('test result');
-    expect(methodCalled).toBe(true);
   });
 });

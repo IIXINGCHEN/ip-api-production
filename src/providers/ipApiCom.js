@@ -1,9 +1,9 @@
 /**
  * 🌐 ip-api.com Provider（真实数据，免费免 token，异步兜底）
  *
- * 数据源：http://ip-api.com/json/{ip} —— 真实上游 HTTP 请求，非硬编码。
+ * 数据源：{{http://ip-api.com/json/{ip}}} —— 真实上游 HTTP 请求，非硬编码。
  * 限制（免费版）：HTTP-only（无 HTTPS）、45 req/min、非商用授权。
- * 优先级最低，仅在 Cloudflare/MaxMind/IPInfo 无数据时作为真实兜底。
+ * 生产默认禁用：必须显式 ENABLE_INSECURE_IPAPI_FALLBACK=true 才会启用。
  * 支持 lang 参数（pain point #6：language 不再被忽略）。
  */
 
@@ -18,12 +18,26 @@ const FIELDS = [
   'isp', 'org', 'as', 'reverse', 'mobile', 'proxy', 'hosting', 'query'
 ].join(',');
 
+function runtimeValue(env, name) {
+  return env?.[name] || (typeof globalThis !== 'undefined' ? globalThis[name] : undefined) || null;
+}
+
+function isTruthy(value) {
+  return value === true || String(value || '').toLowerCase() === 'true';
+}
+
+function isProduction(env = {}) {
+  const value = runtimeValue(env, 'ENVIRONMENT') || runtimeValue(env, 'WORKER_ENV') || runtimeValue(env, 'NODE_ENV');
+  return String(value || '').toLowerCase() === 'production';
+}
+
 export class IPApiComProvider extends BaseProvider {
-  constructor() {
+  constructor(env = {}) {
     super('IPApiCom', {
       priority: PROVIDERS_CONFIG.priorities.ipapicom,
       tier: 'async',
-      ...PROVIDERS_CONFIG.endpoints.ipapicom
+      ...PROVIDERS_CONFIG.endpoints.ipapicom,
+      env
     });
   }
 
@@ -46,7 +60,7 @@ export class IPApiComProvider extends BaseProvider {
           Accept: 'application/json',
           'User-Agent': generateProviderUserAgent('IPApiCom')
         },
-        signal: AbortSignal.timeout(this.config.timeout)
+        signal: opts.signal || AbortSignal.timeout(this.config.timeout)
       });
 
       if (!response.ok) {
@@ -107,8 +121,12 @@ export class IPApiComProvider extends BaseProvider {
     return String(asString).replace(/^AS\d+\s*/i, '').trim() || null;
   }
 
-  // 免 token、免注册，始终可用（作为真实兜底）
   isConfigured() {
-    return true;
+    const enabled = isTruthy(runtimeValue(this.config.env, 'ENABLE_INSECURE_IPAPI_FALLBACK'));
+    if (isProduction(this.config.env)) {
+      return enabled;
+    }
+    // 非生产也默认关闭，避免开发/测试误把查询 IP 明文外发；需要时显式打开。
+    return enabled;
   }
 }

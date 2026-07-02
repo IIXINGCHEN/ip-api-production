@@ -4,6 +4,7 @@
  */
 
 const runtimeGlobals = {
+  AbortController: 'readonly',
   AbortSignal: 'readonly',
   atob: 'readonly',
   btoa: 'readonly',

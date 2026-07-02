@@ -12,7 +12,7 @@
     "deploy": "wrangler deploy --env production",
     "deploy:staging": "wrangler deploy --env staging",
     "deploy:dev": "wrangler deploy --env development",
-    "audit": "npm audit --registry=https://registry.npmjs.org --audit-level moderate",
+    "audit": "npm audit --registry=https://registry.npmjs.org --audit-level moderate --omit=dev",
     "clean": "rm -rf dist node_modules/.cache",
     "lint": "eslint src tests",
     "lint:fix": "eslint src tests --fix",

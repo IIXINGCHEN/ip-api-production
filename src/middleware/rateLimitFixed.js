@@ -179,7 +179,15 @@ export function resetRateLimit(clientIP) {
   return existed;
 }
 
+/**
+ * 清空整个速率限制存储（测试隔离用；production 跨请求共享是正确的，勿调）
+ */
+export function resetAllRateLimits() {
+  rateLimitStore.clear();
+}
+
 export default {
   createRateLimitMiddleware,
-  resetRateLimit
+  resetRateLimit,
+  resetAllRateLimits
 };
