@@ -33,7 +33,10 @@ import systemRoutes from './routes/system.js';
 const app = new Hono();
 
 // 公开端点（精确匹配）：无需 API 密钥、不计入限流计数
-const PUBLIC_ENDPOINTS = ['/', '/health', '/docs', '/api/v1', '/api/v1/openapi.json'];
+const PUBLIC_ENDPOINTS = ['/', '/health', '/docs', '/api/v1', '/api/v1/openapi.json', '/favicon.ico'];
+
+// favicon：浏览器自动请求，公开返回 204（无内容），避免认证中间件 401 噪音
+app.get('/favicon.ico', (c) => c.body(null, 204));
 
 /**
  * CORS origin 匹配：生产仅允许精确匹配；非生产可使用 glob 通配做本地/预发调试。

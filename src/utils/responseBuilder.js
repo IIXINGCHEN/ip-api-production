@@ -11,8 +11,8 @@
 import { generateRequestId } from './response.js';
 
 const API_VERSION = 'v1';
-const DEFAULT_BASE_URL = 'https://ip.ixingchen.top';
-const ALLOWED_HOSTS = new Set(['ip.ixingchen.top', 'ixingchen.top', 'localhost', '127.0.0.1']);
+const DEFAULT_BASE_URL = 'https://ip.hoolhub.top';
+const ALLOWED_HOSTS = new Set(['ip.hoolhub.top', 'hoolhub.top', 'localhost', '127.0.0.1']);
 
 function isValidBaseUrl(value) {
   if (typeof value !== 'string') return false;
