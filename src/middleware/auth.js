@@ -7,9 +7,13 @@ import { ERROR_TYPES } from '../utils/errorHandler.js';
 import { SECURITY_CONFIG } from '../config/security.js';
 import { secureCompare, generateRequestId } from '../utils/response.js';
 import { buildError } from '../utils/responseBuilder.js';
+import { config } from '../config/configManager.js';
 
-// 失败尝试记录的硬上限：防止伪造 IP 暴力破解撑爆 attempts Map
-const MAX_AUTH_ENTRIES = 10000;
+// 失败尝试记录的硬上限（config.security.authMaxEntries，wrangler AUTH_MAX_ENTRIES 注入）。
+// configManager 未 init 时 fallback 10000（镜像 schema default）。
+function authMaxEntries() {
+  try { return config.get('security.authMaxEntries', 10000); } catch { return 10000; }
+}
 // 惰性清理计数器：每 N 个请求触发一次过期清理（Workers 无后台定时器）
 let authCleanupCounter = 0;
 const AUTH_CLEANUP_INTERVAL = 100;
@@ -103,7 +107,7 @@ class APIKeyValidator {
    */
   recordFailedAttempt(clientIP) {
     // 硬上限：达到上限时淘汰最旧条目，防止 attempts Map 无界增长（伪造 IP 场景）
-    if (this.attempts.size >= MAX_AUTH_ENTRIES) {
+    if (this.attempts.size >= authMaxEntries()) {
       this.evictOldestAttempt();
     }
     const attempts = this.attempts.get(clientIP) || { count: 0, firstAttempt: Date.now() };

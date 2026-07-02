@@ -41,7 +41,9 @@ export const configSchema = z.object({
     allowedOrigins: z.array(z.string()).default(['*']),
     blockedIpRanges: z.array(z.string()).default([]),
     trustedProxies: z.array(z.string()).default([]),
-    enableAuditLog: z.boolean().default(true)
+    enableAuditLog: z.boolean().default(true),
+    authMaxEntries: z.number().min(100).default(10000), // 失败尝试 Map 容量上限
+    rateLimitMaxEntries: z.number().min(100).default(10000) // 限流存储 Map 容量上限
   }),
 
   // 缓存配置
@@ -410,6 +412,13 @@ export class ConfigManager {
     }
     if (env.CACHE_SALT) {
       config.cache = { ...(config.cache || {}), salt: env.CACHE_SALT };
+    }
+    if (env.AUTH_MAX_ENTRIES || env.RATE_LIMIT_MAX_ENTRIES) {
+      config.security = {
+        ...(config.security || {}),
+        ...(env.AUTH_MAX_ENTRIES && { authMaxEntries: parseInt(env.AUTH_MAX_ENTRIES) }),
+        ...(env.RATE_LIMIT_MAX_ENTRIES && { rateLimitMaxEntries: parseInt(env.RATE_LIMIT_MAX_ENTRIES) })
+      };
     }
 
     // Provider 凭证（IPINFO_TOKEN / MAXMIND_*）由 security.js PROVIDERS_CONFIG
