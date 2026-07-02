@@ -10,12 +10,18 @@ import { ENVIRONMENT } from './environment.js';
  * 🎯 配置Schema定义
  */
 export const configSchema = z.object({
+  // 应用标识（User-Agent / 信封 name 等，避免硬编码）
+  app: z.object({
+    name: z.string().default('ip-api-production'),
+    version: z.string().default('2.0.0')
+  }).default({}),
+
   // API配置
   api: z.object({
     name: z.string().default('IP Geolocation API'),
     version: z.string().default('2.0.0'),
     description: z.string().default('Enterprise-grade IP geolocation service'),
-    baseUrl: z.string().url().default('https://api.example.com'),
+    baseUrl: z.string().url().default('https://ip.hoolhub.top'),
     timeout: z.number().min(100).max(30000).default(10000),
     maxConcurrentRequests: z.number().min(1).max(1000).default(100),
     enableCors: z.boolean().default(true),
@@ -43,6 +49,7 @@ export const configSchema = z.object({
     enable: z.boolean().default(true),
     ttl: z.number().min(60000).default(300000), // 5分钟
     maxSize: z.number().min(100).default(10000),
+    salt: z.string().default('ip-api-cache-salt'), // 缓存键哈希 salt（外部化，避免硬编码）
     strategy: z.enum(['lru', 'fifo', 'random']).default('lru'),
     enableEncryption: z.boolean().default(true),
     compressionEnabled: z.boolean().default(true),
@@ -391,6 +398,18 @@ export class ConfigManager {
 
     if (env.LOG_LEVEL) {
       config.logging = { level: env.LOG_LEVEL };
+    }
+
+    // 应用标识（User-Agent 等）+ 缓存 salt：从 env 外部化，避免硬编码
+    if (env.APP_NAME || env.APP_VERSION) {
+      config.app = {
+        ...(config.app || {}),
+        ...(env.APP_NAME && { name: env.APP_NAME }),
+        ...(env.APP_VERSION && { version: env.APP_VERSION })
+      };
+    }
+    if (env.CACHE_SALT) {
+      config.cache = { ...(config.cache || {}), salt: env.CACHE_SALT };
     }
 
     // Provider 凭证（IPINFO_TOKEN / MAXMIND_*）由 security.js PROVIDERS_CONFIG

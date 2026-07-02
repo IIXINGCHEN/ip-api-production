@@ -10,11 +10,13 @@
  */
 
 import { ENVIRONMENT } from '../config/environment.js';
+import { config } from '../config/configManager.js';
 
 class SecureCache {
   constructor(options = {}) {
     this.maxSize = options.maxSize || 10000;
     this.defaultTTL = options.defaultTTL || 300000; // 5分钟
+    this.cacheSalt = options.cacheSalt || 'ip-api-cache-salt'; // 生产路径由 getGeoCache 从 config 注入
     this.cache = new Map();
     this.cleanupInterval = options.cleanupInterval || 60000; // 1分钟
     this.cleanupTimer = null;
@@ -39,7 +41,8 @@ class SecureCache {
    * 旧实现 btoa(...).substring(0,32) 仅由输入前 ~24 字节决定，导致共享长前缀的
    * 键（如同一 IP 的 includeThreat=true / false）碰撞，返回错误缓存项。
    */
-  generateSecureKey(key, salt = 'ip-api-cache-salt') {
+  generateSecureKey(key, salt) {
+    salt = salt || this.cacheSalt;
     const input = String(key) + salt;
     let h1 = 0x811c9dc5;
     let h2 = 0x84222325;
@@ -314,8 +317,9 @@ let rateLimitCache = null;
 function getGeoCache() {
   if (!geoCache) {
     geoCache = new SecureCache({
-      maxSize: 10000,
-      defaultTTL: 300000, // 5分钟
+      maxSize: config.get('cache.maxSize', 10000),
+      defaultTTL: config.get('cache.ttl', 300000),
+      cacheSalt: config.get('cache.salt', 'ip-api-cache-salt'),
       enableCleanup: true
     });
   }
@@ -325,8 +329,9 @@ function getGeoCache() {
 function getRateLimitCache() {
   if (!rateLimitCache) {
     rateLimitCache = new SecureCache({
-      maxSize: 5000,
-      defaultTTL: 900000, // 15分钟
+      maxSize: config.get('cache.maxSize', 10000),
+      defaultTTL: config.get('cache.ttl', 300000),
+      cacheSalt: config.get('cache.salt', 'ip-api-cache-salt'),
       enableCleanup: true
     });
   }

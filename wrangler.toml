@@ -14,6 +14,9 @@ minify = true
 ENVIRONMENT = "development"
 WORKER_ENV = "development"
 NODE_ENV = "development"
+APP_NAME = "ip-api-production"
+APP_VERSION = "2.0.0"
+CACHE_SALT = "ip-api-cache-salt"
 
 # Production environment configuration
 [env.production]
