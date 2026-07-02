@@ -308,11 +308,7 @@ export class ConfigManager {
         api: {
           timeout: 8000,
           corsOrigins: [
-            'https://ip.ixingchen.top',
-            'https://ixingchen.top',
-            'https://staging.ixingchen.top',
-            'http://localhost:3000',
-            'http://localhost:8080'
+            'https://ip.hoolhub.top'
           ]
         },
         security: {
