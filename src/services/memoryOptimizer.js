@@ -5,6 +5,7 @@
 
 import { geoLookup } from './geoLookup.js';
 import { hasReliableTimers } from '../utils/runtime.js';
+import { config } from '../config/configManager.js';
 
 class MemoryOptimizer {
   constructor() {
@@ -14,12 +15,22 @@ class MemoryOptimizer {
       collections: [],
       optimizations: []
     };
-    this.config = {
-      maxHeapSize: 100 * 1024 * 1024, // 100MB
-      cleanupThreshold: 80, // 80%内存使用时触发清理
-      monitorInterval: 30000, // 30秒监控间隔
-      statsRetention: 100 // 保留最近100次统计
-    };
+    // 监控阈值外部化 → config.memory.*（configManager 未 init 时 schema default 兜底）
+    try {
+      this.config = {
+        maxHeapSize: config.get('memory.maxHeapBytes', 100 * 1024 * 1024),
+        cleanupThreshold: config.get('memory.cleanupThresholdPercent', 80),
+        monitorInterval: config.get('memory.monitorIntervalMs', 30000),
+        statsRetention: config.get('memory.statsRetention', 100)
+      };
+    } catch {
+      this.config = {
+        maxHeapSize: 100 * 1024 * 1024,
+        cleanupThreshold: 80,
+        monitorInterval: 30000,
+        statsRetention: 100
+      };
+    }
     this.monitoring = false;
     this.monitorTimer = null;
   }

@@ -41,7 +41,8 @@ class ProviderPool {
   constructor() {
     this.providers = new Map();
     this.lastCleanup = Date.now();
-    this.cleanupInterval = 300000; // 5分钟清理一次
+    this.cleanupInterval = 300000; // 5分钟清理一次（_ensureConfigured lazy 覆盖）
+    this.maxAge = 600000; // 10分钟未使用则清理（_ensureConfigured lazy 覆盖）
   }
 
   getProvider(ProviderClass, env = {}) {
@@ -84,9 +85,8 @@ class ProviderPool {
       return;
     }
     this.lastCleanup = now;
-    const maxAge = 600000; // 10分钟未使用则清理
     for (const [name, data] of this.providers.entries()) {
-      if (now - data.lastUsed > maxAge) {
+      if (now - data.lastUsed > this.maxAge) {
         this.providers.delete(name);
       }
     }
@@ -562,6 +562,8 @@ export class GeoLookup {
       this.batchProcessor.maxWaitTime = config.get('geo.batchWaitMs', this.batchProcessor.maxWaitTime);
       this.providerTimeoutMs = config.get('geo.providerTimeoutMs', this.providerTimeoutMs);
       this.primaryThreshold = config.get('geo.primaryThreshold', this.primaryThreshold);
+      this.providerPool.cleanupInterval = config.get('geo.poolCleanupIntervalMs', this.providerPool.cleanupInterval);
+      this.providerPool.maxAge = config.get('geo.poolMaxAgeMs', this.providerPool.maxAge);
     } catch { /* configManager 未 init，保留构造默认 */ }
     this._configured = true;
   }
