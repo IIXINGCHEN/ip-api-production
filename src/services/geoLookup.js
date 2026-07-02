@@ -28,6 +28,7 @@ import { IPInfoProvider } from '../providers/ipinfo.js';
 import { IPApiComProvider } from '../providers/ipApiCom.js';
 import { ThreatService } from './threatService.js';
 import { toCtx } from '../utils/requestAdapter.js';
+import { config } from '../config/configManager.js';
 
 // ============================================================
 // Internal classes
@@ -367,8 +368,7 @@ const DEFAULT_PROVIDER_REGISTRY = [
   { ProviderClass: IPApiComProvider }
 ];
 
-/** priority >= PRIMARY_THRESHOLD 为 primary（高优先级真实源），< 为 fallback（兜底） */
-const PRIMARY_THRESHOLD = 50;
+// primary/fallback 阈值已迁至 GeoLookup.primaryThreshold（config.geo.primaryThreshold，wrangler GEO_PRIMARY_THRESHOLD）
 
 function hasUsableGeo(geo) {
   if (!geo || typeof geo !== 'object') return false;
@@ -445,6 +445,10 @@ export class GeoLookup {
     this.providers = deps.providers ?? DEFAULT_PROVIDER_REGISTRY;
     this.providerPool = new ProviderPool();
     this.cache = deps.cache ?? new ResultCache();
+    // 内部参数默认值（_ensureConfigured 首次 get 时从 config 覆盖；镜像 configManager.geo schema default）
+    this.primaryThreshold = 50;
+    this.providerTimeoutMs = 5000;
+    this._configured = false;
     this.batchProcessor = deps.batchProcessor ?? new BatchProcessor();
     this.monitor = deps.monitor ?? new PerformanceMonitor();
     this.threatDetector = deps.threatDetector ?? getDefaultThreatDetector();
@@ -545,9 +549,28 @@ export class GeoLookup {
   }
 
   /**
+   * 首次请求时从 config 重新配置内部 class 参数（lazy reconfigure）。
+   * 模块级 `export const geoLookup = new GeoLookup()` 时 configManager 未 init，
+   * 故构造用默认值，首个请求（configManager 已 init）时覆盖。
+   */
+  _ensureConfigured() {
+    if (this._configured) return;
+    try {
+      this.cache.ttl = config.get('geo.resultTtlMs', this.cache.ttl);
+      this.cache.maxSize = config.get('geo.resultMaxSize', this.cache.maxSize);
+      this.batchProcessor.maxBatchSize = config.get('geo.batchMaxSize', this.batchProcessor.maxBatchSize);
+      this.batchProcessor.maxWaitTime = config.get('geo.batchWaitMs', this.batchProcessor.maxWaitTime);
+      this.providerTimeoutMs = config.get('geo.providerTimeoutMs', this.providerTimeoutMs);
+      this.primaryThreshold = config.get('geo.primaryThreshold', this.primaryThreshold);
+    } catch { /* configManager 未 init，保留构造默认 */ }
+    this._configured = true;
+  }
+
+  /**
    * 优化的地理位置查询（三层：sync 快速路径 → async primary → async fallback）
    */
   async get(ip, request, options = {}) {
+    this._ensureConfigured();
     const startTime = Date.now();
 
     try {
@@ -565,8 +588,8 @@ export class GeoLookup {
         const ctx = toCtx(request);
 
         const sync = providers.filter((p) => p.tier === 'sync');
-        const primary = providers.filter((p) => p.tier === 'async' && p.priority >= PRIMARY_THRESHOLD);
-        const fallback = providers.filter((p) => p.tier === 'async' && p.priority < PRIMARY_THRESHOLD);
+        const primary = providers.filter((p) => p.tier === 'async' && p.priority >= this.primaryThreshold);
+        const fallback = providers.filter((p) => p.tier === 'async' && p.priority < this.primaryThreshold);
 
         // Tier 0：同步快速路径（Cloudflare）
         const syncResults = sync.map((p) => {
@@ -579,7 +602,7 @@ export class GeoLookup {
 
         // Tier 1：异步 primary 并行
         const primaryResults = await Promise.allSettled(
-          primary.map((p) => this.withTimeout(() => p.fetch(ip, options), 5000, options.signal))
+          primary.map((p) => this.withTimeout(() => p.fetch(ip, options), this.providerTimeoutMs, options.signal))
         );
 
         let merged = this.basicMerge([...syncResults, ...primaryResults], [...sync, ...primary], ip);
@@ -587,7 +610,7 @@ export class GeoLookup {
         // Tier 2：fallback 仅当 primary 无可用地理数据时调用
         if (!hasUsableGeo(merged) && fallback.length > 0) {
           const fallbackResults = await Promise.allSettled(
-            fallback.map((p) => this.withTimeout(() => p.fetch(ip, options), 5000, options.signal))
+            fallback.map((p) => this.withTimeout(() => p.fetch(ip, options), this.providerTimeoutMs, options.signal))
           );
           merged = this.basicMerge(
             [...syncResults, ...primaryResults, ...fallbackResults],

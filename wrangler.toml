@@ -17,6 +17,14 @@ NODE_ENV = "development"
 APP_NAME = "ip-api-production"
 APP_VERSION = "2.0.0"
 CACHE_SALT = "ip-api-cache-salt"
+AUTH_MAX_ENTRIES = "10000"
+RATE_LIMIT_MAX_ENTRIES = "10000"
+GEO_RESULT_TTL_MS = "300000"
+GEO_RESULT_MAX_SIZE = "1000"
+GEO_BATCH_MAX_SIZE = "10"
+GEO_BATCH_WAIT_MS = "50"
+GEO_PROVIDER_TIMEOUT_MS = "5000"
+GEO_PRIMARY_THRESHOLD = "50"
 
 # Production environment configuration
 [env.production]
