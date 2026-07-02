@@ -155,3 +155,7 @@ tasks/
 
 # Local dev secrets (wrangler)
 .dev.vars
+
+# Agent artifacts (local-only, not for repo)
+.agents/
+docs/agents/

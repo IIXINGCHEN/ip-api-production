@@ -7,11 +7,16 @@ import { SECURITY_CONFIG } from '../config/security.js';
 import { ERROR_TYPES } from '../utils/errorHandler.js';
 import { buildError } from '../utils/responseBuilder.js';
 import { generateRequestId } from '../utils/response.js';
+import { config } from '../config/configManager.js';
 
 // 全局速率限制存储
 const rateLimitStore = new Map();
-const MAX_ENTRIES = 10000;
 const CLEANUP_THRESHOLD = 0.9; // 90%时触发清理
+
+// 限流存储容量上限（config.security.rateLimitMaxEntries，wrangler RATE_LIMIT_MAX_ENTRIES 注入）。
+function rateLimitMaxEntries() {
+  try { return config.get('security.rateLimitMaxEntries', 10000); } catch { return 10000; }
+}
 
 /**
  * 速率限制数据结构
@@ -42,14 +47,15 @@ class RateLimitEntry {
  * LRU清理策略
  */
 function performLRUCleanup() {
-  if (rateLimitStore.size < MAX_ENTRIES * CLEANUP_THRESHOLD) {
+  const maxEntries = rateLimitMaxEntries();
+  if (rateLimitStore.size < maxEntries * CLEANUP_THRESHOLD) {
     return;
   }
 
   const entries = Array.from(rateLimitStore.entries())
     .sort((a, b) => a[1].lastRequest - b[1].lastRequest);
 
-  const toDelete = Math.floor(MAX_ENTRIES * 0.1); // 删除10%最旧的
+  const toDelete = Math.floor(maxEntries * 0.1); // 删除10%最旧的
   for (let i = 0; i < toDelete && i < entries.length; i++) {
     rateLimitStore.delete(entries[i][0]);
   }
