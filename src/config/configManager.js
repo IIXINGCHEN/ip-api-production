@@ -128,6 +128,16 @@ export const configSchema = z.object({
     enableUserAnalytics: z.boolean().default(false)
   }),
 
+  // GeoLookup 内部参数（ResultCache/BatchProcessor/withTimeout/PRIMARY_THRESHOLD）
+  geo: z.object({
+    resultTtlMs: z.number().default(300000),
+    resultMaxSize: z.number().default(1000),
+    batchMaxSize: z.number().default(10),
+    batchWaitMs: z.number().default(50),
+    providerTimeoutMs: z.number().default(5000),
+    primaryThreshold: z.number().default(50)
+  }).default({}),
+
   // 数据库配置（如果需要）
   database: z.object({
     enabled: z.boolean().default(false),
@@ -420,6 +430,15 @@ export class ConfigManager {
         ...(env.RATE_LIMIT_MAX_ENTRIES && { rateLimitMaxEntries: parseInt(env.RATE_LIMIT_MAX_ENTRIES) })
       };
     }
+    // GeoLookup 内部参数
+    const geo = {};
+    if (env.GEO_RESULT_TTL_MS) geo.resultTtlMs = parseInt(env.GEO_RESULT_TTL_MS);
+    if (env.GEO_RESULT_MAX_SIZE) geo.resultMaxSize = parseInt(env.GEO_RESULT_MAX_SIZE);
+    if (env.GEO_BATCH_MAX_SIZE) geo.batchMaxSize = parseInt(env.GEO_BATCH_MAX_SIZE);
+    if (env.GEO_BATCH_WAIT_MS) geo.batchWaitMs = parseInt(env.GEO_BATCH_WAIT_MS);
+    if (env.GEO_PROVIDER_TIMEOUT_MS) geo.providerTimeoutMs = parseInt(env.GEO_PROVIDER_TIMEOUT_MS);
+    if (env.GEO_PRIMARY_THRESHOLD) geo.primaryThreshold = parseInt(env.GEO_PRIMARY_THRESHOLD);
+    if (Object.keys(geo).length) config.geo = { ...(config.geo || {}), ...geo };
 
     // Provider 凭证（IPINFO_TOKEN / MAXMIND_*）由 security.js PROVIDERS_CONFIG
     // 从 globalThis 读取并直接注入 provider，不经过此配置树（曾在此重复读取，已删除）。
