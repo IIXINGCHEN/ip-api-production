@@ -128,14 +128,24 @@ export const configSchema = z.object({
     enableUserAnalytics: z.boolean().default(false)
   }),
 
-  // GeoLookup 内部参数（ResultCache/BatchProcessor/withTimeout/PRIMARY_THRESHOLD）
+  // GeoLookup 内部参数（ResultCache/BatchProcessor/withTimeout/PRIMARY_THRESHOLD/ProviderPool）
   geo: z.object({
     resultTtlMs: z.number().default(300000),
     resultMaxSize: z.number().default(1000),
     batchMaxSize: z.number().default(10),
     batchWaitMs: z.number().default(50),
     providerTimeoutMs: z.number().default(5000),
-    primaryThreshold: z.number().default(50)
+    primaryThreshold: z.number().default(50),
+    poolCleanupIntervalMs: z.number().default(300000),
+    poolMaxAgeMs: z.number().default(600000)
+  }).default({}),
+
+  // 内存监控阈值（memoryOptimizer）
+  memory: z.object({
+    maxHeapBytes: z.number().default(104857600), // 100MB
+    cleanupThresholdPercent: z.number().default(80),
+    monitorIntervalMs: z.number().default(30000),
+    statsRetention: z.number().default(100)
   }).default({}),
 
   // 数据库配置（如果需要）
@@ -438,7 +448,16 @@ export class ConfigManager {
     if (env.GEO_BATCH_WAIT_MS) geo.batchWaitMs = parseInt(env.GEO_BATCH_WAIT_MS);
     if (env.GEO_PROVIDER_TIMEOUT_MS) geo.providerTimeoutMs = parseInt(env.GEO_PROVIDER_TIMEOUT_MS);
     if (env.GEO_PRIMARY_THRESHOLD) geo.primaryThreshold = parseInt(env.GEO_PRIMARY_THRESHOLD);
+    if (env.GEO_POOL_CLEANUP_INTERVAL_MS) geo.poolCleanupIntervalMs = parseInt(env.GEO_POOL_CLEANUP_INTERVAL_MS);
+    if (env.GEO_POOL_MAX_AGE_MS) geo.poolMaxAgeMs = parseInt(env.GEO_POOL_MAX_AGE_MS);
     if (Object.keys(geo).length) config.geo = { ...(config.geo || {}), ...geo };
+    // 内存监控
+    const mem = {};
+    if (env.MEMORY_MAX_HEAP_BYTES) mem.maxHeapBytes = parseInt(env.MEMORY_MAX_HEAP_BYTES);
+    if (env.MEMORY_CLEANUP_THRESHOLD_PERCENT) mem.cleanupThresholdPercent = parseInt(env.MEMORY_CLEANUP_THRESHOLD_PERCENT);
+    if (env.MEMORY_MONITOR_INTERVAL_MS) mem.monitorIntervalMs = parseInt(env.MEMORY_MONITOR_INTERVAL_MS);
+    if (env.MEMORY_STATS_RETENTION) mem.statsRetention = parseInt(env.MEMORY_STATS_RETENTION);
+    if (Object.keys(mem).length) config.memory = { ...(config.memory || {}), ...mem };
 
     // Provider 凭证（IPINFO_TOKEN / MAXMIND_*）由 security.js PROVIDERS_CONFIG
     // 从 globalThis 读取并直接注入 provider，不经过此配置树（曾在此重复读取，已删除）。
