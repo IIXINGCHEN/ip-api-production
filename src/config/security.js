@@ -67,13 +67,13 @@ export const PROVIDERS_CONFIG = {
   endpoints: {
     ipinfo: {
       url: 'https://ipinfo.io',
-      token: globalThis.IPINFO_TOKEN || null,
+      token: null,
       timeout: 5000
     },
     maxmind: {
       url: 'https://geoip.maxmind.com',
-      userId: globalThis.MAXMIND_USER_ID || null,
-      licenseKey: globalThis.MAXMIND_LICENSE_KEY || null,
+      userId: null,
+      licenseKey: null,
       timeout: 5000
     },
     // ip-api.com：免费、免 token、免注册的真实 HTTP API。
@@ -81,7 +81,9 @@ export const PROVIDERS_CONFIG = {
     // 优先级最低，仅在 Cloudflare/MaxMind/IPInfo 无数据时作为真实兜底。
     ipapicom: {
       url: 'http://ip-api.com',
-      timeout: 5000
+      timeout: 5000,
+      insecure: true,
+      enabledByDefault: false
     }
   }
 };

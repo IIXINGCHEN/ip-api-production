@@ -291,6 +291,20 @@ class SecureCache {
     this.stopCleanup();
     this.clear();
   }
+
+  /**
+   * 缓存键构造（候选 3 — 集中 cache-key 逻辑到 cache 模块）
+   * 接受结构化 (ip, query)，排除 'pretty' / 'callback'，生成统一 string。
+   * 之前在 src/routes/ips.js 185-192 重复实现——现由 cache 模块拥有。
+   */
+  static cacheKeyFor(ip, query) {
+    const qs = Object.keys(query)
+      .filter((k) => !['pretty', 'callback'].includes(k))
+      .sort()
+      .map((k) => `${k}=${query[k]}`)
+      .join('&');
+    return `geo:${ip}:${qs}`;
+  }
 }
 
 // 创建全局缓存实例 - 延迟初始化以避免Cloudflare Workers全局作用域问题

@@ -20,7 +20,7 @@ vi.mock('../../src/utils/errorHandler.js', () => ({
   ERROR_TYPES: { TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS' }
 }));
 
-import { createRateLimitMiddleware, resetRateLimit } from '../../src/middleware/rateLimitFixed.js';
+import { createRateLimitMiddleware, resetRateLimit, resetAllRateLimits } from '../../src/middleware/rateLimitFixed.js';
 
 const makeContext = (path, clientIP) => {
   const headers = {};
@@ -43,7 +43,8 @@ const uniqueIP = () => `10.${++testCounter}.${++testCounter}.${++testCounter}`;
 
 describe('rateLimitFixed skipEndpoints', () => {
   beforeEach(() => {
-    // 不真正清空 store（避免影响其他并发 test），改用唯一 IP 隔离
+    // 清空 store 实现测试隔离（替代之前的 uniqueIP workaround）
+    resetAllRateLimits();
   });
 
   it('public endpoints bypass the limiter (never set X-RateLimit headers)', async() => {

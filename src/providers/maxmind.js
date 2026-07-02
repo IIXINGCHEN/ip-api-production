@@ -2,16 +2,22 @@ import { PROVIDERS_CONFIG } from '../config/security.js';
 import { BaseProvider, createGeoData } from './BaseProvider.js';
 import { generateProviderUserAgent } from '../utils/userAgent.js';
 
+function runtimeValue(env, name) {
+  return env?.[name] || (typeof globalThis !== 'undefined' ? globalThis[name] : undefined) || null;
+}
+
 /**
  * 🔵 MaxMind GeoIP2 Provider（异步，需凭证）
  * 支持 language（names[lang]）—— pain point #6。
  */
 export class MaxMindProvider extends BaseProvider {
-  constructor() {
+  constructor(env = {}) {
     super('MaxMind', {
       priority: PROVIDERS_CONFIG.priorities.maxmind,
       tier: 'async',
-      ...PROVIDERS_CONFIG.endpoints.maxmind
+      ...PROVIDERS_CONFIG.endpoints.maxmind,
+      userId: runtimeValue(env, 'MAXMIND_USER_ID'),
+      licenseKey: runtimeValue(env, 'MAXMIND_LICENSE_KEY')
     });
   }
 
@@ -20,7 +26,7 @@ export class MaxMindProvider extends BaseProvider {
       return null; // 未配置 → 无数据（正常），让其他 provider 处理
     }
     try {
-      const response = await this.makeMaxMindRequest('insights', ip);
+      const response = await this.makeMaxMindRequest('insights', ip, opts);
       return this.parseGeoResponse(response, opts);
     } catch (error) {
       // 404（IP 不在库）→ 无数据；其他失败 → 类型化错误（可观测）
@@ -31,7 +37,7 @@ export class MaxMindProvider extends BaseProvider {
     }
   }
 
-  async makeMaxMindRequest(service, ip) {
+  async makeMaxMindRequest(service, ip, opts = {}) {
     const url = `${this.config.url}/geoip/v2.1/${service}/${ip}`;
     const credentials = `${this.config.userId}:${this.config.licenseKey}`;
     const auth = btoa(credentials);
@@ -44,7 +50,7 @@ export class MaxMindProvider extends BaseProvider {
           Accept: 'application/json',
           'User-Agent': generateProviderUserAgent('MaxMind')
         },
-        signal: AbortSignal.timeout(this.config.timeout)
+        signal: opts.signal || AbortSignal.timeout(this.config.timeout)
       });
 
       if (!response.ok) {

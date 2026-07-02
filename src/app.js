@@ -21,7 +21,7 @@ import { configManager, config } from './config/configManager.js';
 import { monitoringService } from './monitoring/monitoringService.js';
 import { createAuthMiddleware } from './middleware/auth.js';
 import { createRateLimitMiddleware } from './middleware/rateLimitFixed.js';
-import { performanceOptimizer, startMemoryCleanup, stopMemoryCleanup } from './services/performanceOptimizer.js';
+import { startMemoryCleanup, stopMemoryCleanup, geoLookup } from './services/geoLookup.js';
 import memoryOptimizer from './services/memoryOptimizer.js';
 import { buildError } from './utils/responseBuilder.js';
 
@@ -36,9 +36,14 @@ const app = new Hono();
 const PUBLIC_ENDPOINTS = ['/', '/health', '/docs', '/api/v1', '/api/v1/openapi.json'];
 
 /**
- * CORS origin 匹配：支持精确与 glob 通配（'*' 匹配任意，含多级子域）。
- * 例：'https://*.ixingchen.top' 匹配 'https://api.ixingchen.top'。
+ * CORS origin 匹配：生产仅允许精确匹配；非生产可使用 glob 通配做本地/预发调试。
  */
+function normalizeRequestId(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return /^[A-Za-z0-9._:-]{1,128}$/.test(trimmed) ? trimmed : null;
+}
+
 function originMatchesAllowed(origin, allowed) {
   return allowed.some((pattern) => {
     if (!pattern || typeof pattern !== 'string') {
@@ -47,7 +52,7 @@ function originMatchesAllowed(origin, allowed) {
     if (pattern === origin) {
       return true;
     }
-    if (!pattern.includes('*')) {
+    if (!pattern.includes('*') || ENVIRONMENT.isProduction()) {
       return false;
     }
     const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
@@ -138,7 +143,7 @@ async function initializeApplication() {
     }
 
     if (ENVIRONMENT.isProduction()) {
-      performanceOptimizer.setEnabled(true);
+      geoLookup.setEnabled(true);
       console.log('✅ Performance optimizer enabled for production');
     }
 
@@ -222,7 +227,7 @@ app.use('*', cors({
     'X-Request-ID', 'X-Response-Time', 'X-API-Version',
     'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset', 'Allow'
   ],
-  credentials: true,
+  credentials: false,
   maxAge: 86400
 }));
 
@@ -236,8 +241,8 @@ app.use('*', async(c, next) => {
   c.header('Content-Security-Policy', 'default-src \'self\'');
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
   c.header('X-API-Version', 'v1');
-  // requestId：优先沿用客户端 X-Request-ID，否则生成；存入 context 供下游中间件/路由统一使用
-  const requestId = c.req.header('X-Request-ID') || generateRequestId();
+  // requestId：仅沿用合法客户端 X-Request-ID，否则生成；避免响应头/日志注入。
+  const requestId = normalizeRequestId(c.req.header('X-Request-ID')) || generateRequestId();
   c.header('X-Request-ID', requestId);
   c.set('requestId', requestId);
   await next();
@@ -342,7 +347,7 @@ if (typeof process !== 'undefined') {
       console.log('🧹 Stopping memory cleanup...');
       stopMemoryCleanup();
       console.log('⚡ Cleaning up performance optimizer...');
-      performanceOptimizer.cleanup();
+      geoLookup.cleanup();
       console.log('🧠 Destroying memory optimizer...');
       memoryOptimizer.destroy();
       console.log('🎯 Graceful shutdown completed');

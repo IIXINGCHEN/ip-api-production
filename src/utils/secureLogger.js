@@ -3,10 +3,11 @@
  * 防止敏感信息泄露到日志中
  */
 
-import { ENVIRONMENT, isFeatureEnabled } from '../config/environment.js';
+import { ENVIRONMENT } from '../config/environment.js';
+import { config } from '../config/configManager.js';
 
 class SecureLogger {
-  constructor() {
+  constructor(transport = null) {
     this.sensitivePatterns = [
       // IP地址模式（部分隐藏）
       /\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.)\d{1,3}\b/g,
@@ -20,6 +21,13 @@ class SecureLogger {
 
     this.ipMaskPattern = /\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.)\d{1,3}\b/g;
     this.keyMaskPattern = /[a-zA-Z0-9]{20,}/g;
+
+    // 🆕 候选 2（最小切片）：transport 注入 seam。
+    // transport 形状：{ level?: string, sink?: (entry) => void }
+    //   - level：覆盖默认 level 来源（getCurrentConfig）。null/undefined 时仍走默认。
+    //   - sink：每个 logEntry 写入回调；null/undefined 时 console 路径不变（行为完全不变）。
+    // 顶层 default export `new SecureLogger()` 不传 transport → 0 行为变化。
+    this.transport = transport;
   }
 
   /**
@@ -135,6 +143,13 @@ class SecureLogger {
         logEntry.data = this.sanitizeObject(data);
       }
 
+      // 候选 2：注入 transport.sink 时，写入 sink（测试断言用）；console 路径仍照常走。
+      // m3 契约：sink 是 additive（附加），不替代 console。注入 sink 时 console 仍输出（双写）。
+      // 不传 transport（默认 export）→ sink 为 undefined → 完全不影响行为。
+      if (this.transport?.sink) {
+        this.transport.sink(logEntry);
+      }
+
       // 根据环境选择输出方式
       if (ENVIRONMENT.isProduction()) {
         // 生产环境：只输出结构化日志到stderr
@@ -163,9 +178,11 @@ class SecureLogger {
    * 检查是否应该记录日志
    */
   shouldLog(level) {
+    // 候选 2：transport.level 优先（测试可注入精修 level）；否则回落到默认来源。
     const config = getCurrentConfig();
     const logLevels = ['error', 'warn', 'info', 'debug'];
-    const currentLevelIndex = logLevels.indexOf(config.logging.level);
+    const effectiveLevel = this.transport?.level ?? config.logging.level;
+    const currentLevelIndex = logLevels.indexOf(effectiveLevel);
     const messageLevelIndex = logLevels.indexOf(level);
 
     return messageLevelIndex <= currentLevelIndex;
@@ -190,7 +207,16 @@ class SecureLogger {
 
   // 性能监控
   performance(operation, duration, metadata = {}) {
-    if (!isFeatureEnabled('monitoring')) {
+    // ponytail: 读 configManager 而非已删的 ENV_CONFIG。
+    // config.get 在 configManager 未初始化时 throw（非返回 default），此处兜底为默认启用，
+    // 避免预初始化调用方（监控启动/引导日志）未捕获抛错。
+    let enabled = true;
+    try {
+      enabled = config.get('monitoring.enableMetrics', true);
+    } catch {
+      enabled = true;
+    }
+    if (!enabled) {
       return;
     }
 
@@ -248,5 +274,8 @@ function getCurrentConfig() {
 
 // 创建全局实例
 const secureLogger = new SecureLogger();
+
+// 候选 2：named export class，让测试可 new 出带 transport 的独立实例。
+export { SecureLogger };
 
 export default secureLogger;

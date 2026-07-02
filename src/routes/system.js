@@ -20,9 +20,9 @@ import secureLogger from '../utils/secureLogger.js';
 import { createAdminAuthMiddleware } from '../middleware/auth.js';
 import { config } from '../config/configManager.js';
 import { monitoringService } from '../monitoring/monitoringService.js';
-import { performanceOptimizer } from '../services/performanceOptimizer.js';
+import { geoLookup } from '../services/geoLookup.js';
 import memoryOptimizer from '../services/memoryOptimizer.js';
-import { getMemoryUsage } from '../utils/runtime.js';
+import { getMemoryUsage, getUptime } from '../utils/runtime.js';
 import {
   buildSuccess,
   buildError,
@@ -155,7 +155,7 @@ app.get('/api/v1/system/metrics', async(c) => {
 
     const resource = {
       system: {
-        uptimeSeconds: typeof process !== 'undefined' && process.uptime ? Math.floor(process.uptime()) : 0,
+        uptimeSeconds: Math.floor(getUptime()),
         memory: {
           heapMb: Math.round(memoryUsage.heapUsed / 1024 / 1024),
           heapTotalMb: Math.round(memoryUsage.heapTotal / 1024 / 1024),
@@ -368,7 +368,7 @@ app.post('/api/v1/system/memory:optimize', (c) => {
 // GET /api/v1/system/performance — 性能统计
 app.get('/api/v1/system/performance', (c) => {
   const startTime = Date.now();
-  const perfStats = performanceOptimizer.getPerformanceStats();
+  const perfStats = geoLookup.getStats();
   const memoryStats = memoryOptimizer.getMemoryStats();
   const memoryLeaks = memoryOptimizer.detectMemoryLeaks();
 
@@ -384,7 +384,7 @@ app.get('/api/v1/system/performance', (c) => {
     memoryLeaksDetected: memoryLeaks ? memoryLeaks.detected : false,
     leakIndicators: memoryLeaks ? memoryLeaks.indicators : [],
     configuration: {
-      performanceOptimizationEnabled: performanceOptimizer.enabled,
+      performanceOptimizationEnabled: geoLookup.enabled,
       memoryMonitoringActive: memoryStats.monitoring
     }
   }, { ctx: ctx(c), startTime, links }));
@@ -437,7 +437,7 @@ function buildPrometheusMetrics(monitoringMetrics, monitoringStatus, memoryUsage
 
     '# HELP system_uptime_seconds System uptime in seconds',
     '# TYPE system_uptime_seconds counter',
-    `system_uptime_seconds ${typeof process !== 'undefined' && process.uptime ? Math.floor(process.uptime()) : 0}`,
+    `system_uptime_seconds ${Math.floor(getUptime())}`,
 
     '# HELP monitoring_status Monitoring service running',
     '# TYPE monitoring_status gauge',

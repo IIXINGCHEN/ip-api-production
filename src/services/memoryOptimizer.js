@@ -3,7 +3,7 @@
  * 提供内存监控、清理和优化功能
  */
 
-import { performanceOptimizer } from './performanceOptimizer.js';
+import { geoLookup } from './geoLookup.js';
 import { hasReliableTimers } from '../utils/runtime.js';
 
 class MemoryOptimizer {
@@ -139,12 +139,6 @@ class MemoryOptimizer {
     // 2. 清理缓存（这里可以扩展为实际的缓存清理）
     this.clearCaches();
 
-    // 3. 清理事件监听器
-    this.clearEventListeners();
-
-    // 4. 清理定时器
-    this.clearTimers();
-
     const after = this.getCurrentMemoryUsage();
     const duration = Date.now() - startTime;
 
@@ -171,33 +165,11 @@ class MemoryOptimizer {
     // 这里可以集成实际的缓存清理逻辑
     // 例如：清理geoCache、rateLimitCache等
     try {
-      // 清理性能优化器缓存
-      performanceOptimizer.cleanup();
+      // 清理 GeoLookup 缓存
+      geoLookup.cleanup();
     } catch (error) {
       console.warn('Cache cleanup failed:', error.message);
     }
-  }
-
-  /**
-   * 清理事件监听器
-   */
-  clearEventListeners() {
-    // 清理可能存在的事件监听器泄漏
-    if (typeof process !== 'undefined' && process.removeAllListeners) {
-      // 只清理自定义事件监听器，保留系统监听器
-      const customEvents = ['custom-event'];
-      customEvents.forEach(event => {
-        process.removeAllListeners(event);
-      });
-    }
-  }
-
-  /**
-   * 清理定时器
-   */
-  clearTimers() {
-    // 注意：这里不应该清理系统定时器
-    // 可以实现自定义定时器注册和清理机制
   }
 
   /**
@@ -228,65 +200,18 @@ class MemoryOptimizer {
   }
 
   /**
-   * 优化内存使用
+   * 优化内存使用：触发 GC + 缓存清理，记录一次优化事件。
+   * （曾调用 optimizeObjectPools/StringCaches/ArrayUsage 三个 stub，已删——它们返回空数组、0 行为。）
    */
   optimizeMemoryUsage() {
-    const optimizations = [];
-
-    // 1. 检查并优化对象池
-    optimizations.push(...this.optimizeObjectPools());
-
-    // 2. 检查并优化字符串缓存
-    optimizations.push(...this.optimizeStringCaches());
-
-    // 3. 检查并优化数组使用
-    optimizations.push(...this.optimizeArrayUsage());
-
-    // 4. 强制垃圾回收
     this.performCleanup();
 
     this.metrics.optimizations.push({
       timestamp: Date.now(),
-      optimizations: optimizations
+      optimizations: []
     });
 
-    return optimizations;
-  }
-
-  /**
-   * 优化对象池
-   */
-  optimizeObjectPools() {
-    const optimizations = [];
-
-    // 实现对象池优化逻辑
-    // 例如：重用对象而不是创建新对象
-
-    return optimizations;
-  }
-
-  /**
-   * 优化字符串缓存
-   */
-  optimizeStringCaches() {
-    const optimizations = [];
-
-    // 实现字符串缓存优化逻辑
-    // 例如：清理不再使用的字符串缓存
-
-    return optimizations;
-  }
-
-  /**
-   * 优化数组使用
-   */
-  optimizeArrayUsage() {
-    const optimizations = [];
-
-    // 实现数组优化逻辑
-    // 例如：清理大数组，使用TypedArray等
-
-    return optimizations;
+    return [];
   }
 
   /**
@@ -451,49 +376,6 @@ class MemoryOptimizer {
 
 // 🌍 全局内存优化器实例
 export const memoryOptimizer = new MemoryOptimizer();
-
-// 🎯 内存装饰器 - 为函数添加内存监控
-export function withMemoryMonitoring(target, propertyName, descriptor) {
-  const originalMethod = descriptor.value;
-
-  descriptor.value = function(...args) {
-    const beforeMemory = memoryOptimizer.getCurrentMemoryUsage();
-
-    try {
-      const result = originalMethod.apply(this, args);
-
-      if (result instanceof Promise) {
-        return result.finally(() => {
-          const afterMemory = memoryOptimizer.getCurrentMemoryUsage();
-          if (beforeMemory && afterMemory) {
-            const memoryDelta = afterMemory.heapUsed - beforeMemory.heapUsed;
-            if (Math.abs(memoryDelta) > 1024 * 1024) { // 超过1MB变化
-              console.log(`📊 Memory usage for ${propertyName}:`, {
-                delta: Math.round(memoryDelta / 1024 / 1024) + 'MB',
-                before: Math.round(beforeMemory.heapUsed / 1024 / 1024) + 'MB',
-                after: Math.round(afterMemory.heapUsed / 1024 / 1024) + 'MB'
-              });
-            }
-          }
-        });
-      }
-
-      return result;
-    } catch (error) {
-      const afterMemory = memoryOptimizer.getCurrentMemoryUsage();
-      if (beforeMemory && afterMemory) {
-        const memoryDelta = afterMemory.heapUsed - beforeMemory.heapUsed;
-        console.log(`❌ Memory usage for ${propertyName} (failed):`, {
-          delta: Math.round(memoryDelta / 1024 / 1024) + 'MB',
-          error: error.message
-        });
-      }
-      throw error;
-    }
-  };
-
-  return descriptor;
-}
 
 // 内存监控将在应用初始化时启动
 

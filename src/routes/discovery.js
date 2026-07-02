@@ -19,7 +19,7 @@ import {
   getBaseUrl,
   API_VERSION
 } from '../utils/responseBuilder.js';
-import { getMemoryUsage } from '../utils/runtime.js';
+import { getMemoryUsage, getUptime } from '../utils/runtime.js';
 import { config } from '../config/configManager.js';
 
 const app = new Hono();
@@ -60,9 +60,7 @@ app.get('/health', (c) => {
   const requestId = c.get('requestId') || generateRequestId();
   const ctx = { requestId };
 
-  const uptime = typeof process !== 'undefined' && typeof process.uptime === 'function'
-    ? process.uptime()
-    : 0;
+  const uptime = getUptime();
   const memoryUsage = getMemoryUsage() || { heapUsed: 0, heapTotal: 1 };
 
   const resource = {
@@ -134,7 +132,7 @@ app.get('/docs', (c) => {
       'GET /api/v1/ips         查询集合（默认返回调用方自身 IP 的地理位置）',
       'GET /api/v1/ips/self    显式查询调用方自身 IP',
       'GET /api/v1/ips/:ip     查询指定 IP（公网 IP）',
-      'POST /api/v1/ips:batch  批量查询（body: {"ips":["8.8.8.8","1.1.1.1"]}）'
+      'POST /api/v1/ips:batch  批量查询（body: {"ips":["8.8.8.8","1.1.1.1"]}，最多 20 个 IP）'
     ],
     systemEndpoints: [
       'GET  /api/v1/system/health         详细健康检查',
@@ -153,10 +151,10 @@ app.get('/docs', (c) => {
       fields: '逗号分隔的字段投影，支持点路径（如 location.coordinates.latitude）',
       includeThreat: 'true | false，是否附带威胁/安全评估',
       pretty: 'true | false，JSON 美化输出',
-      callback: 'JSONP 回调函数名（仅 format=json）',
+      callback: 'JSONP 回调函数名（默认禁用；仅 ENABLE_JSONP=true 时可用）',
       timeout: '请求超时毫秒数（100-10000）'
     },
-    responseFormats: ['application/json', 'application/xml', 'text/csv', 'application/javascript (JSONP)']
+    responseFormats: ['application/json', 'application/xml', 'text/csv']
   };
 
   const links = buildLinks(base, {

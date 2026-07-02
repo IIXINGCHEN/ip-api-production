@@ -135,7 +135,6 @@ export const configSchema = z.object({
 export class ConfigManager {
   constructor() {
     this.config = null;
-    this.watchers = new Map();
     this.lastUpdated = null;
     this.isInitialized = false;
   }
@@ -169,9 +168,6 @@ export class ConfigManager {
       this.applyConfiguration();
 
       console.log('🔧 Configuration initialized successfully');
-
-      // 通知监听器
-      this.notifyWatchers('initialized', this.config);
 
     } catch (error) {
       console.error('❌ Configuration initialization failed:', error);
@@ -295,7 +291,6 @@ export class ConfigManager {
           corsOrigins: [
             'https://ip.ixingchen.top',
             'https://ixingchen.top',
-            'https://*.ixingchen.top',
             'https://staging.ixingchen.top',
             'http://localhost:3000',
             'http://localhost:8080'
@@ -321,8 +316,7 @@ export class ConfigManager {
           enableCors: true,
           corsOrigins: [
             'https://ip.ixingchen.top',
-            'https://ixingchen.top',
-            'https://*.ixingchen.top'
+            'https://ixingchen.top'
           ]
         },
         security: {
@@ -381,7 +375,11 @@ export class ConfigManager {
 
     // API配置
     if (env.API_TIMEOUT) {
-      config.api = { timeout: parseInt(env.API_TIMEOUT) };
+      config.api = { ...(config.api || {}), timeout: parseInt(env.API_TIMEOUT) };
+    }
+
+    if (env.API_BASE_URL) {
+      config.api = { ...(config.api || {}), baseUrl: env.API_BASE_URL };
     }
 
     if (env.API_RATE_LIMIT) {
@@ -485,9 +483,6 @@ export class ConfigManager {
 
     this.setNestedValue(this.config, path, value);
     this.lastUpdated = new Date().toISOString();
-
-    // 通知监听器
-    this.notifyWatchers('changed', { path, value });
   }
 
   /**
@@ -537,59 +532,6 @@ export class ConfigManager {
   }
 
   /**
-   * 监听配置变化
-   */
-  watch(path, callback) {
-    if (!this.watchers.has(path)) {
-      this.watchers.set(path, []);
-    }
-
-    this.watchers.get(path).push(callback);
-
-    // 返回取消监听的函数
-    return () => {
-      const callbacks = this.watchers.get(path);
-      if (callbacks) {
-        const index = callbacks.indexOf(callback);
-        if (index > -1) {
-          callbacks.splice(index, 1);
-        }
-      }
-    };
-  }
-
-  /**
-   * 通知监听器
-   */
-  notifyWatchers(event, data) {
-    for (const [path, callbacks] of this.watchers) {
-      if (this.pathMatches(path, data.path)) {
-        callbacks.forEach(callback => {
-          try {
-            callback(event, data);
-          } catch (error) {
-            console.error(`Configuration watcher error for path ${path}:`, error);
-          }
-        });
-      }
-    }
-  }
-
-  /**
-   * 检查路径是否匹配
-   */
-  pathMatches(watchPath, changedPath) {
-    if (watchPath === '*') return true;
-    if (watchPath === changedPath) return true;
-    if (watchPath.endsWith('.*')) {
-      const prefix = watchPath.slice(0, -1);
-      return Boolean(changedPath && changedPath.startsWith(prefix));
-    }
-    if (changedPath && changedPath.startsWith(watchPath + '.')) return true;
-    return false;
-  }
-
-  /**
    * 验证配置
    */
   validate() {
@@ -633,7 +575,6 @@ export class ConfigManager {
     return {
       initialized: this.isInitialized,
       lastUpdated: this.lastUpdated,
-      watcherCount: Array.from(this.watchers.values()).reduce((sum, callbacks) => sum + callbacks.length, 0),
       configSize: JSON.stringify(this.config || {}).length,
       environment: ENVIRONMENT.current
     };
@@ -647,7 +588,6 @@ export const configManager = new ConfigManager();
 export const config = {
   get: (path, defaultValue) => configManager.get(path, defaultValue),
   set: (path, value) => configManager.set(path, value),
-  watch: (path, callback) => configManager.watch(path, callback),
   getAll: () => configManager.getAll(),
   validate: () => configManager.validate(),
   reload: () => configManager.reload(),

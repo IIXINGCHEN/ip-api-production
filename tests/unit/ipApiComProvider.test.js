@@ -39,10 +39,20 @@ describe('IPApiComProvider', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('优先级与配置正确（免 token 始终可用）', () => {
+  it('优先级与名称正确（默认禁用：需 ENABLE_INSECURE_IPAPI_FALLBACK=true）', () => {
+    // 96107c0 security fix: IPApiComProvider 默认关闭（避免明文外发 IP），
+    // 必须显式设置 ENABLE_INSECURE_IPAPI_FALLBACK=true 才启用。测试名"免 token
+    // 始终可用"是误导——免的是 token，但仍需显式开关。
     expect(provider.priority).toBe(40);
-    expect(provider.isConfigured()).toBe(true);
     expect(provider.name).toBe('IPApiCom');
+    // 默认 isConfigured() === false（PROVIDERS_CONFIG.endpoints.ipapicom.enabledByDefault: false）
+    expect(provider.isConfigured()).toBe(false);
+  });
+
+  it('设置 ENABLE_INSECURE_IPAPI_FALLBACK=true 后 isConfigured() 为 true', () => {
+    // 重新构造，传入 enabled 标志
+    const enabledProvider = new IPApiComProvider({ ENABLE_INSECURE_IPAPI_FALLBACK: true });
+    expect(enabledProvider.isConfigured()).toBe(true);
   });
 
   it('fetch 解析真实响应为规范 GeoData', async() => {

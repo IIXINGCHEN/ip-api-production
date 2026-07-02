@@ -234,7 +234,7 @@ curl -X POST -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
 ### Adding a New Provider
 1. Extend `BaseProvider.js` in `src/providers/`
 2. Implement `tryExtractSync(ip, ctx)` (sync, `tier:'sync'`) OR `fetch(ip, opts)` (async, `tier:'async'`), plus `isConfigured()`. Build the return value with `createGeoData()`; return `null` for "no data", throw `ProviderError` (via `this.classify()`) on real failure.
-3. Add one row to `PROVIDER_REGISTRY` in `src/services/performanceOptimizer.js` (`{ module, exportName }`); priority and tier are set in the provider constructor.
+3. Add one row to `DEFAULT_PROVIDER_REGISTRY` in `src/services/geoLookup.js` (`{ ProviderClass }`); priority and tier are set in the provider constructor.
 4. Set appropriate priority level (`>=50` = primary, `<50` = fallback)
 
 ### Modifying Security Settings

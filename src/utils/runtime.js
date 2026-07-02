@@ -4,7 +4,26 @@
  * workerd（Cloudflare Workers，含 wrangler dev --local）在 nodejs_compat 下同样提供
  * setTimeout/setInterval 与 process polyfill，因此 `typeof setInterval === 'undefined'`
  * 与 `process.env.NODE_ENV` 判断都无法区分 Workers 与 Node。本模块提供唯一可信的检测入口。
+ *
+ * 设计（候选 6 — 内部重构）：
+ * - 内部 `getRuntimeKind()` 唯一做实际探测（WebSocketPair + navigator.userAgent + process.versions.node）
+ * - 三个外部 API（isWorkersRuntime / isNodeRuntime / hasReliableTimers）委派给 getRuntimeKind
+ * - 接口不变；行为不变；零回归
  */
+
+/**
+ * 内部 runtime kind 探测：返回 'workers' 或 'node'。
+ * 此函数是模块唯一可信的检测入口；外部 API 仅作 wrapper。
+ */
+function getRuntimeKind() {
+  if (typeof WebSocketPair !== 'undefined') {
+    return 'workers';
+  }
+  if (typeof navigator !== 'undefined' && navigator.userAgent === 'Cloudflare-Workers') {
+    return 'workers';
+  }
+  return 'node';
+}
 
 /**
  * 是否运行在 Cloudflare Workers (workerd) 中。
@@ -12,20 +31,17 @@
  * 'Cloudflare-Workers'。两者任一命中即视为 Workers。
  */
 export function isWorkersRuntime() {
-  if (typeof WebSocketPair !== 'undefined') {
-    return true;
-  }
-  return typeof navigator !== 'undefined' && navigator.userAgent === 'Cloudflare-Workers';
+  return getRuntimeKind() === 'workers';
 }
 
 /**
  * 是否运行在真实 Node.js 进程中（排除 workerd 的 nodejs_compat polyfill）。
  */
 export function isNodeRuntime() {
-  if (isWorkersRuntime()) {
-    return false;
-  }
-  return typeof process !== 'undefined' && Boolean(process.versions && process.versions.node);
+  const inNode = getRuntimeKind() === 'node';
+  const hasProcess = typeof process !== 'undefined';
+  const hasNodeVersion = hasProcess && Boolean(process.versions && process.versions.node);
+  return inNode && hasNodeVersion;
 }
 
 /**
@@ -35,6 +51,20 @@ export function isNodeRuntime() {
  */
 export function hasReliableTimers() {
   return isNodeRuntime();
+}
+
+/**
+ * 进程运行秒数。workerd 无 process.uptime，回落 0（调用方据此隐藏 uptime 字段或显示 N/A）。
+ */
+export function getUptime() {
+  if (typeof process === 'undefined' || typeof process.uptime !== 'function') {
+    return 0;
+  }
+  try {
+    return process.uptime();
+  } catch {
+    return 0;
+  }
 }
 
 /**

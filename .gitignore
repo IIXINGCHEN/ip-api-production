@@ -152,3 +152,6 @@ dist
 
 # 本地工作流笔记/测试脚本（含开发密钥，不应入库）
 tasks/
+
+# Local dev secrets (wrangler)
+.dev.vars

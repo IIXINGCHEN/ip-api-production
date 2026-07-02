@@ -13,11 +13,11 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import { getGeoInfo } from '../services/geoService.js';
+import { geoLookup } from '../services/geoLookup.js';
 import { generateRequestId } from '../utils/response.js';
 import { ENVIRONMENT } from '../config/environment.js';
 import secureLogger from '../utils/secureLogger.js';
-import { getGeoCache, getRateLimitCache } from '../utils/secureCache.js';
+import { getGeoCache, getRateLimitCache, SecureCache } from '../utils/secureCache.js';
 import { SecurityChecker } from '../utils/inputValidator.js';
 import { ErrorFactory, ERROR_TYPES } from '../utils/errorHandler.js';
 import { config } from '../config/configManager.js';
@@ -34,6 +34,8 @@ const app = new Hono();
 
 const MAX_FIELD_DEPTH = 5;
 const MAX_FIELDS_COUNT = 50;
+const MAX_BATCH_SIZE = 20;
+const MAX_BATCH_CONCURRENCY = 5;
 
 // 私有/环回/链路本地/保留地址前缀（拒绝查询）
 const BLOCKED_IP_PATTERNS = [
@@ -141,7 +143,7 @@ const ipParamSchema = z.object({
 const batchBodySchema = z.object({
   ips: z.array(z.string().ip('包含无效 IP 地址'))
     .min(1, '至少提供 1 个 IP')
-    .max(100, '单次最多 100 个 IP')
+    .max(MAX_BATCH_SIZE, `单次最多 ${MAX_BATCH_SIZE} 个 IP`)
     .refine((ips) => ips.every((ip) => !isBlockedIp(ip)), '批量查询不允许包含私有/环回 IP')
 });
 
@@ -177,17 +179,10 @@ async function secureGeoLookup(ip, request, options) {
       }
     }
   }
-  return getGeoInfo(ip, request, options);
+  return geoLookup.get(ip, request, options);
 }
 
-function getCacheKey(ip, query) {
-  const qs = Object.keys(query)
-    .filter((k) => !['pretty', 'callback'].includes(k))
-    .sort()
-    .map((k) => `${k}=${query[k]}`)
-    .join('&');
-  return `geo:${ip}:${qs}`;
-}
+// Cache key 已集中到 SecureCache.cacheKeyFor（候选 3）；route 直接调用，不留 wrapper。
 
 const getFromCache = (key) => getCache().get(key);
 const setCache = (key, data) => getCache().set(key, data, productionConfig().CACHE_TTL);
@@ -198,7 +193,7 @@ const setCache = (key, data) => getCache().set(key, data, productionConfig().CAC
 async function resolveGeo(c, ip, query, requestId) {
   const startTime = Date.now();
   const ctx = { requestId };
-  const cacheKey = getCacheKey(ip, query);
+  const cacheKey = SecureCache.cacheKeyFor(ip, query);
 
   const cached = getFromCache(cacheKey);
   if (cached) {
@@ -213,13 +208,20 @@ async function resolveGeo(c, ip, query, requestId) {
   }
 
   const cfg = productionConfig();
-  const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => reject(new Error('Request timeout')), cfg.REQUEST_TIMEOUT);
-  });
-  const geoInfo = await Promise.race([
-    secureGeoLookup(ip, c.req, { language: query.lang, includeThreat: query.includeThreat }),
-    timeoutPromise
-  ]);
+  const controller = new AbortController();
+  const timeout = query.timeout || cfg.REQUEST_TIMEOUT;
+  const timer = setTimeout(() => controller.abort(new Error('Request timeout')), timeout);
+  let geoInfo;
+  try {
+    geoInfo = await secureGeoLookup(ip, c.req, {
+      language: query.lang,
+      includeThreat: query.includeThreat,
+      env: c.env,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 
   const resource = buildGeoResource(geoInfo, ip, query);
   const base = getBaseUrl(c);
@@ -255,7 +257,6 @@ async function resolveGeo(c, ip, query, requestId) {
  * 统一错误映射为标准信封
  */
 function handleError(c, error, ip, requestId, startTime) {
-  const ctx = { requestId, startTime };
   const processingTime = Date.now() - startTime;
 
   secureLogger.error('IP geo lookup failed', {
@@ -266,7 +267,7 @@ function handleError(c, error, ip, requestId, startTime) {
     ...(ENVIRONMENT.isDevelopment() && { stack: error.stack })
   });
 
-  const isTimeout = error.name === 'TimeoutError' || error.message === 'Request timeout';
+  const isTimeout = error.name === 'TimeoutError' || /timeout|aborted/i.test(error.message || '');
   const isInvalidIP = error.message.includes('Invalid IP address');
 
   let status = 500;
@@ -287,7 +288,12 @@ function handleError(c, error, ip, requestId, startTime) {
   });
 
   return c.json(
-    buildError(code, message, ENVIRONMENT.isDevelopment() ? { error: error.message } : undefined, ctx),
+    buildError(
+      code,
+      message,
+      ENVIRONMENT.isDevelopment() ? { error: error.message } : undefined,
+      { ctx: { requestId }, startTime }
+    ),
     { status }
   );
 }
@@ -296,6 +302,14 @@ function handleError(c, error, ip, requestId, startTime) {
  * 按格式序列化响应信封并输出
  */
 function sendFormatted(c, body, query) {
+  if (query.callback && String(c.env?.ENABLE_JSONP || '').toLowerCase() !== 'true') {
+    const requestId = c.get('requestId') || generateRequestId();
+    const startTime = c.get('startTime') || Date.now();
+    return c.json(
+      buildError('BAD_REQUEST', 'JSONP callback is disabled', null, { ctx: { requestId }, startTime }),
+      { status: 400 }
+    );
+  }
   const { content, contentType, disposition } = serializeByFormat(body, query);
   const headers = {
     'Content-Type': contentType,
@@ -406,27 +420,38 @@ app.post('/api/v1/ips:batch', validate('query', geoQuerySchema), async(c) => {
     secureLogger.info('IP batch lookup', { requestId, ipCount: ips.length, format: query.format });
 
     const cfg = productionConfig();
-    const concurrency = Math.min(ips.length, cfg.MAX_CONCURRENT_REQUESTS);
+    const concurrency = Math.min(ips.length, cfg.MAX_CONCURRENT_REQUESTS, MAX_BATCH_CONCURRENCY);
     const results = [];
 
     for (let i = 0; i < ips.length; i += concurrency) {
       const slice = ips.slice(i, i + concurrency);
       const batchResults = await Promise.all(slice.map(async(ip) => {
         try {
-          const cacheKey = getCacheKey(ip, query);
+          const cacheKey = SecureCache.cacheKeyFor(ip, query);
           const cached = getFromCache(cacheKey);
           if (cached) {
             return { ip, data: cached.data, cached: true };
           }
-          const geoInfo = await secureGeoLookup(ip, c.req, {
-            language: query.lang, includeThreat: query.includeThreat
-          });
+          const controller = new AbortController();
+          const timeout = query.timeout || cfg.REQUEST_TIMEOUT;
+          const timer = setTimeout(() => controller.abort(new Error('Request timeout')), timeout);
+          let geoInfo;
+          try {
+            geoInfo = await secureGeoLookup(ip, c.req, {
+              language: query.lang,
+              includeThreat: query.includeThreat,
+              env: c.env,
+              signal: controller.signal
+            });
+          } finally {
+            clearTimeout(timer);
+          }
           const resource = buildGeoResource(geoInfo, ip, query);
           setCache(cacheKey, { data: resource, links: null });
           return { ip, data: resource, cached: false };
         } catch (error) {
           secureLogger.warn('Batch lookup failed for IP', { requestId, ip, error: error.message });
-          const isTimeout = error.name === 'TimeoutError' || error.message === 'Request timeout';
+          const isTimeout = error.name === 'TimeoutError' || /timeout|aborted/i.test(error.message || '');
           return {
             ip,
             error: {
