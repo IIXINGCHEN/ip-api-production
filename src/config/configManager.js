@@ -315,8 +315,7 @@ export class ConfigManager {
           timeout: 5000,
           enableCors: true,
           corsOrigins: [
-            'https://ip.ixingchen.top',
-            'https://ixingchen.top'
+            'https://ip.hoolhub.top'
           ]
         },
         security: {

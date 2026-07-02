@@ -20,11 +20,15 @@ NODE_ENV = "development"
 name = "ip-api-production"
 workers_dev = false
 minify = true
+routes = [
+  { pattern = "ip.hoolhub.top", custom_domain = true }
+]
 
 [env.production.vars]
 ENVIRONMENT = "production"
 WORKER_ENV = "production"
 NODE_ENV = "production"
+API_BASE_URL = "https://ip.hoolhub.top"
 
 # Staging environment configuration
 [env.staging]
