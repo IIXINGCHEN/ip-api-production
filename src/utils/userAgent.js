@@ -12,7 +12,13 @@
 import { config } from '../config/configManager.js';
 
 function baseUserAgent() {
-  return `${config.get('app.name')}/${config.get('app.version')}`;
+  // config.get 在 configManager 未 initialize 时抛错（某些单元测试不走 init）；
+  // 防御性 fallback，值镜像 configManager.app schema default。
+  try {
+    return `${config.get('app.name')}/${config.get('app.version')}`;
+  } catch {
+    return 'ip-api-production/2.0.0';
+  }
 }
 
 /**
